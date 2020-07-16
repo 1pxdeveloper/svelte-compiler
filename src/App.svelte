@@ -1,4 +1,9 @@
 <script>
+import {Observable} from "./1px/observable";
+
+
+
+
 const _abc = () => {
 }; //
 
@@ -82,9 +87,7 @@ const render = (element, attr, text, bind, use, _in, _out) =>
 
 // <div style="display: flex">
 //   <textarea cols="80" rows="45" bind:value={text}/>
-//
 //   <div style="padding: 10px"></div>
-//
 //   <pre style="tab-size: 4">{result}</pre>
 // </div>
 
