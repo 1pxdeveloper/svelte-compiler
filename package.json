@@ -21,7 +21,8 @@
     "rollup-plugin-terser": "^5.1.2",
     "svelte": "^3.0.0",
     "svelte-preprocess": "^4.0.8",
-    "typescript": "^3.9.6"
+    "tslib": "^2.0.0",
+    "typescript": "^3.9.7"
   },
   "dependencies": {
     "babylon": "^6.18.0",

@@ -33,44 +33,23 @@ babel.registerPlugin('lolizer', lolizer);
 window.babel = babel;
 
 
-// language=HTML
-const input = `
-<component>
-  <script>
-    let x = 100;
-    let y = 200;
-    // let z = 0;
+// language=js
+const input = `x + 100`
 
-    let z = x + y;
-
-    function test() {
-      let x = 100;
-       let z = "sadklfjasldfjlksafdSD";
-    }
-  </scr` + `ipt>
-
-  <div class="abc" test={100}>
-    <space size="2"/>
-    <h1>sadklfj:sdkfjaslkdf{skdlfjs}</h1>
-  </div>
-
-  <style>{\`
-   h1 {
-   color: red;
-\`}
-</style>
-</component>
-
-`
 
 // language=
+console.time("1");
+
 const output = babel.transform(input, {
-"parserOpts": {
-"plugins": ["jsx"]
-},
-plugins: ['lolizer']
-}
+    "parserOpts": {
+      "plugins": ["jsx"]
+    },
+    plugins: ['lolizer']
+  }
 );
 
 console.log(output.code);
+
+console.timeEnd("1");
+
 </script>

@@ -74,7 +74,7 @@ let token
 
 function next(id) {
   if (id && token && token.id !== id) {
-    throw new Error("Unexpected token: " + token.id)
+    throw new Error("Unexpected token: " + token.id + ", not " + id)
   }
 
   const t = token
@@ -83,11 +83,11 @@ function next(id) {
 }
 
 function nextUntil(...ids) {
-  let res = "";
-  while(!ids.includes(token.id)) {
-    res += next().value;
+  let res = ""
+  while (!ids.includes(token.id)) {
+    res += next().value
   }
-  return res;
+  return res
 }
 
 function skip(id) {
@@ -106,11 +106,12 @@ function createPath(type) {
 
 function svelte() {
   next()
-  for (let i = 0; i < 100; i++) {
-    if (!token) break
-    script() || element()
+  for (let i = 0; i < 200; i++) {
     skip("(ws)")
+    if (!token) break
+    script() || element() || blocks() || textNode()
   }
+  skip("(ws)")
 }
 
 
@@ -127,7 +128,21 @@ function script() {
 function element() {
   if (token.id === "(open_tag)") return elementOpen()
   if (token.id === "(close_tag)") return elementClose()
-  throw new Error("invalid Element.")
+  return false
+}
+
+function blocks() {
+  if (token.id !== "{") return false
+  const path = createPath("blocks")
+  path.code = brace()
+  return true
+}
+
+function textNode() {
+  if (token.id !== "(text)") return false
+  const path = createPath("text")
+  path.code = nextUntil("(open_tag)", "(close_tag)", "{", "(open_script)")
+  return true
 }
 
 
@@ -146,17 +161,20 @@ function elementOpen() {
   skip("(ws)")
 
   if (token.id === "/>") {
-    path.type = "elementVoid"
+    const path2 = createPath("elementClose")
+    path2.tagName = path.tagName
     next()
   }
 
   if (token.id === ">") next()
+  return true
 }
 
 function elementClose() {
   const path = createPath("elementClose")
   skip("(ws)")
   path.tagName = next().value
+  return true
 }
 
 
@@ -164,16 +182,29 @@ function attr() {
   const path = createPath("attr")
   path.nodeName = next("(text)").value
 
-  if (token.id === "(ws)") {}
+  skip("(ws)")
   if (token.id === "=") next()
+  skip("(ws)")
 
   if (token.id === "(string)") path.nodeValue = next().value
+  else if (token.id === "{") path.nodeValue = brace()
 }
 
 function brace() {
-  const path = createPath("brace")
-  path.nodeName = next("(text)").value
+  let ret = "{"
 
+  next("{")
+  ret += nextUntil("{", "}")
+
+  if (token.id === "{") {
+    ret += brace()
+  }
+
+  ret += nextUntil("}")
+  next("}")
+
+  ret += "}"
+  return ret
 }
 
 let text = ""
@@ -189,12 +220,88 @@ function parse() {
   } catch (e) { console.error(e) }
 
   paths = paths
-  console.log(paths)
+
+  let codes = paths.map(path => {
+    switch (path.type) {
+      case "elementOpen": {
+        return `,\nelement('${path.tagName}'`
+      }
+
+      case "elementClose": {
+        return `)`
+      }
+
+      case "attr": {
+        return `, attr('${path.nodeName}', '${path.nodeValue}')`
+      }
+
+      case "blocks": {
+        return `, blocks('${path.code}')`
+      }
+    }
+  }).join("")
+
+
+  console.log("render(1" + codes + ")")
 }
 
+
+function render() {
+
+}
+
+
+// render(1,
+//   element('main', attr('id', 'template'),
+//     element('h1', blocks('{name}')),
+//     element('div', attr('style', 'display: flex'),
+//       element('textarea', attr('test2', '{  {a:100, b:500}   }'), attr('test', '12312321'), attr('cols', '80'), attr('rows', '45'), attr('bind:value', '{text}'), attr('on:input', '{parse}')),
+//       element('table', attr('style', 'table-layout: fixed'), blocks('{#each tokens as token}'),
+//         element('tr',
+//           element('td', attr('style', 'padding: 0 30px'), blocks('{token.id}')),
+//           element('td', blocks('{token.value}'))), blocks('{/each}')),
+//       element('table', attr('style', 'table-layout: fixed'), blocks('{#each paths as path}'),
+//         element('tr',
+//           element('td', attr('style', 'padding: 0 30px'), blocks('{path.type}')),
+//           element('td', blocks('{JSON.stringify(path)}'))), blocks('{/each}')))))
+
+
 onMount(() => {
-  const template = document.getElementById("template")
-  text = template.innerHTML
+
+  // language=svelte
+  const template = `
+
+  <main id="template">
+
+<h1>Hello, {name}</h1>
+
+  <div style="display: flex">
+    <textarea test2={  {a:100, b:500}   } test="12312321" cols="80" rows="45" bind:value={text} on:input={parse}/>
+
+    <table style="table-layout: fixed">
+      {#each tokens as token}
+        <tr>
+          <td style="padding: 0 30px">{token.id}</td>
+          <td>{token.value}</td>
+        </tr>
+      {/each}
+    </table>
+
+    <table style="table-layout: fixed">
+      {#each paths as path}
+        <tr>
+          <td style="padding: 0 30px">{path.type}</td>
+          <td>{JSON.stringify(path)}</td>
+        </tr>
+      {/each}
+    </table>
+
+
+  </div>
+</main>
+  `
+
+  text = template
   parse()
 })
 </script>
@@ -225,3 +332,12 @@ onMount(() => {
 
   </div>
 </main>
+
+
+<style>
+:global(html) {
+  font-size: 13px;
+  font-family: monospace;
+}
+
+</style>

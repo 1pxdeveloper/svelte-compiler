@@ -1,14 +1,11 @@
 {
+  "include": ["src/**/*"],
   "compilerOptions": {
     "target": "esnext",
     "moduleResolution": "node",
     "allowJs": true,
-    "noEmit": true,
-    "strict": true,
     "esModuleInterop": true,
-    "types": ["svelte"]
-  },
-  "include": [
-    "src"
-  ]
+    "types": ["svelte"],
+    "lib": ["es5", "dom"]
+  }
 }
