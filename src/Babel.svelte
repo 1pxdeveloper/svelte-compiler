@@ -1,25 +1,6 @@
 <script>
 const babel = Babel
-
-function makeInvalidate({types: t}) {
-  return {
-    visitor: {
-      AssignmentExpression(path) {
-        if (path.shouldSkip) return
-
-        let node = path.node
-        let left = path.node.left.name
-
-        // path.node.left.name
-        path.replaceWith(
-          t.expressionStatement(t.callExpression(t.identifier("invalidate"), [t.stringLiteral(left), path.node]))
-        )
-        path.shouldSkip = true
-      }
-    }
-  }
-}
-
+window.babel = babel
 
 function makeReactive({types: t}) {
   window.t = t
@@ -32,21 +13,19 @@ function makeReactive({types: t}) {
 
         const keys = Object.keys(path.scope.globals)
 
+        path.shouldSkip = true
         path.replaceWith(
           t.arrayExpression([
             t.arrowFunctionExpression(keys.map(key => t.identifier(key)), path.node.expression),
             ...keys.map(key => t.stringLiteral(key))
           ])
         )
-        path.shouldSkip = true
       },
     }
   }
 }
 
 babel.registerPlugin('makeReactive', makeReactive)
-
-window.babel = babel
 
 
 // language=js
@@ -67,5 +46,4 @@ if (output.ast.program.body[0].type !== "ExpressionStatement") {
 
 console.log(output.code)
 console.timeEnd("1")
-
 </script>
