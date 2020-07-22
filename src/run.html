@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Title</title>
+</head>
+<body>
+
+
+<main id="m"></main>
+
+
+<script>
+let dirty
+let props = Object.create(null)
+let bindings = []
+
+const invalidate = (key, _, value = _) => {
+  dirty = dirty || requestAnimationFrame(updates) && Object.create(null)
+  dirty[key] = true
+  props[key] = value
+
+  console.log('invalidate', key, value, props)
+  console.log('bindings', bindings)
+
+  return value
+}
+
+const updates = () => {
+  console.log('updates dirty', dirty)
+
+  for (const binding of bindings) update(binding, props, dirty)
+  dirty = undefined
+}
+
+const update = (binding, props, dirty) => {
+  const [callback, ...keys] = binding
+  const args = []
+  for (const key of keys) {
+    if (!dirty[key]) return
+    args.push(props[key])
+  }
+  callback(...args)
+}
+
+
+const render = (createInstance, ...nodes) => (target) => {
+  for (const node of nodes) node(target)
+  createInstance(invalidate)
+}
+
+const element = (tagName, ...nodes) => (target) => {
+  const el = document.createElement(tagName)
+  for (const node of nodes) node(el)
+  target.appendChild(el)
+  return () => {
+    console.log('destroy', 'element')
+  }
+}
+
+const attr = (nodeName, nodeValue) => (el) => el.setAttribute(nodeName, nodeValue)
+const text = (data) => (el) => el.appendChild(document.createTextNode(data))
+
+/// @FIXME: textBinding(identifier()), attrBinding(identifier())
+const identifier = (prop) => (el) => {
+  const textNode = document.createTextNode('')
+  el.appendChild(textNode)
+  bindings.push([value => textNode.nodeValue = value, prop])
+}
+</script>
+
+
+<script>
+function createInstance(invalidate) {
+  let name = 100
+  let count = 0
+
+  invalidate("name", name = 0)
+  invalidate("name", name += 5)
+
+  setInterval(() => {
+    invalidate("name", name++, name)
+  }, 1000)
+
+  const inc = () => invalidate("count", count++, count)
+  const inc2 = () => invalidate("count", count += 5)
+  invalidate("name", name)
+  invalidate("count", count)
+  invalidate("inc", inc)
+  invalidate("inc2", inc2)
+}
+
+const r = render(createInstance,
+  element('div', attr('class', [name => name, "name"]),
+    element('h1', text('hello, '), identifier('name'), text('!')),
+    element('h2', text('count: '), identifier('count')),
+    element('button', attr('on:click', [inc => inc, "inc"]), text('inc'))))
+
+r(document.getElementById("m"))
+
+
+setTimeout(() => {
+  console.log(document.getElementById("m").innerHTML)
+})
+
+
+</script>
+</body>
+</html>

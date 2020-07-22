@@ -1,12 +1,24 @@
 <script>
-	import Info from './Info.svelte';
+let name = 100
+let count = 0;
 
-	const pkg = {
-		name: 'svelte',
-		version: 3,
-		speed: 'blazing',
-		website: 'https://svelte.dev'
-	};
+name = 0
+name += 5
+
+// [name] = [100, 200]
+
+
+setInterval(() => {
+  name++
+}, 1000)
+
+const inc = () => count++
+const inc2 = () => count += 5
 </script>
 
-<Info name={pkg.name} version={pkg.version} speed={pkg.speed} website={pkg.website}/>
+<div class={name}>
+  <h1>hello, {name}!</h1>
+  <h2>count: {count}</h2>
+
+  <button on:click={inc}>inc</button>
+</div>

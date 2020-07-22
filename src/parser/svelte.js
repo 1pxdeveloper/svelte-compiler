@@ -148,6 +148,7 @@ function elementOpen() {
     const path2 = createPath("elementClose")
     path2.tagName = path.tagName
     next()
+    return true
   }
 
   if (token.id === ">") next()
@@ -173,17 +174,18 @@ function attr() {
     return
   }
 
-
-  path.nodeName = next("(text)").value
-
-  ws()
-  if (token.id === "=") next()
+  path.nodeName = next("(text)").value || ""
   ws()
 
-  if (token.id === "(string)") path.nodeValue = next().value
-  else if (token.id === "(identifier_block)") path.nodeValue = next().value
-  else if (token.id === "{") path.nodeValue = brace()
-  else throw new SyntaxError("invalid token!" + token.value)
+  if (token.id === "=") {
+    next()
+    ws()
+
+    if (token.id === "(string)") path.nodeValue = next().value || ""
+    else if (token.id === "(identifier_block)") path.nodeValue = next().value || ""
+    else if (token.id === "{") path.nodeValue = brace() || ""
+    else throw new SyntaxError("invalid token!" + token.value)
+  }
 }
 
 
@@ -247,6 +249,5 @@ export function parseSvelte(text) {
 }
 
 
-
-
+{}
 

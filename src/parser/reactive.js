@@ -35,11 +35,11 @@ export function transformReactive(source) {
     plugins: ['makeReactive']
   })
 
-  console.log(source, output)
-
-  if (output.ast.program.body[0] && output.ast.program.body[0].type !== "ExpressionStatement") {
-    throw new Error("{...} must be expression.")
-  }
+  // console.log(source, output)
+  //
+  // if (output.ast.program.body[0] && output.ast.program.body[0].type !== "ExpressionStatement") {
+  //   throw new Error("{...} must be expression.")
+  // }
 
   return output
 }
