@@ -12,15 +12,12 @@
 
 <script>
 let dirty
-let props = Object.create(null)
 let bindings = []
 
-const invalidate = (key, _, value = _) => {
-  dirty = dirty || requestAnimationFrame(updates) && Object.create(null)
-  dirty[key] = true
-  props[key] = value
+const invalidate = (value, flag) => {
+  dirty |= (dirty || requestAnimationFrame(updates) && flag)
 
-  console.log('invalidate', key, value, props)
+  console.log('invalidate', value, flag)
   console.log('bindings', bindings)
 
   return value
@@ -28,44 +25,53 @@ const invalidate = (key, _, value = _) => {
 
 const updates = () => {
   console.log('updates dirty', dirty)
-
-  for (const binding of bindings) update(binding, props, dirty)
-  dirty = undefined
+  for (const binding of bindings) update(binding, dirty)
+  dirty = 0
 }
 
-const update = (binding, props, dirty) => {
-  const [callback, ...keys] = binding
-  const args = []
+const update = (binding, dirty) => {
+  const [updateCallback, dataCallback, ...keys] = binding
+
   for (const key of keys) {
-    if (!dirty[key]) return
-    args.push(props[key])
+    if (key & dirty) return updateCallback(dataCallback())
   }
-  callback(...args)
 }
 
 
 const render = (createInstance, ...nodes) => (target) => {
-  for (const node of nodes) node(target)
-  createInstance(invalidate)
+  const ctx = createInstance(invalidate)
+  for (const node of nodes) node(target, ctx)
 }
 
-const element = (tagName, ...nodes) => (target) => {
+const element = (tagName, ...nodes) => (target, ctx) => {
   const el = document.createElement(tagName)
-  for (const node of nodes) node(el)
+  for (const node of nodes) node(el, ctx)
   target.appendChild(el)
   return () => {
     console.log('destroy', 'element')
   }
 }
 
-const attr = (nodeName, nodeValue) => (el) => el.setAttribute(nodeName, nodeValue)
-const text = (data) => (el) => el.appendChild(document.createTextNode(data))
+const attr = (nodeName, nodeValue = '') => (el) => {
+  el.setAttribute(nodeName, nodeValue)
+  return [
+    nodeValue => el.setAttribute(nodeName, nodeValue)
+  ]
+}
 
-/// @FIXME: textBinding(identifier()), attrBinding(identifier())
-const identifier = (prop) => (el) => {
-  const textNode = document.createTextNode('')
+const text = (data = '') => (el) => {
+  const textNode = document.createTextNode(data)
   el.appendChild(textNode)
-  bindings.push([value => textNode.nodeValue = value, prop])
+  return [
+    (data) => textNode.nodeValue = data
+  ]
+}
+
+const bind = (callback, index, mask) => (el, ctx) => {
+  const [updateCallback] = callback(el, ctx)
+  const binding = [updateCallback, ctx[index], mask]
+  bindings.push(binding)
+  update(binding, mask)
 }
 </script>
 
@@ -74,30 +80,33 @@ const identifier = (prop) => (el) => {
 function createInstance(invalidate) {
   let name = 100
   let count = 0
+  let x = 0,
+    y = 0
 
-  invalidate("name", name = 0)
-  invalidate("name", name += 5)
+  name = 0
+  name += 5
+
+  // [name] = [100, 200]
 
   setInterval(() => {
-    invalidate("name", name++, name)
+    invalidate(name++, 1)
   }, 1000)
 
-  const inc = () => invalidate("count", count++, count)
-  const inc2 = () => invalidate("count", count += 5)
-  invalidate("name", name)
-  invalidate("count", count)
-  invalidate("inc", inc)
-  invalidate("inc2", inc2)
+  const inc = () => invalidate(count++, 2)
+  const inc2 = () => invalidate(count += 5, 2)
+  return [() => name, () => name, () => name, () => count, () => x + y, () => event => inc(event)]
 }
 
 const r = render(createInstance,
-  element('div', attr('class', [name => name, "name"]),
-    element('h1', text('hello, '), identifier('name'), text('!')),
-    element('h2', text('count: '), identifier('count')),
-    element('button', attr('on:click', [inc => inc, "inc"]), text('inc'))))
+  element('div', bind(attr('class'), 0, 1),
+    element('h1', text('hello, '), bind(text(), 1, 1), text('!')),
+    element('h1', text('hello2, '), bind(text(), 2, 1), text('?')),
+    element('h2', text('count: '), bind(text(), 3, 2)),
+    element('h3', text('sum: '), bind(text(), 4, 12)),
+    element('button', bind(attr('on:click'), 5, 16), text('inc'))))
+
 
 r(document.getElementById("m"))
-
 
 setTimeout(() => {
   console.log(document.getElementById("m").innerHTML)

@@ -2,6 +2,7 @@
 import {parseSvelte} from "./parser/svelte"
 import {transformScript} from "./parser/script"
 import {transformReactive} from "./parser/reactive"
+import {getIndentifiers, initIndentifiers, setIndentifiers} from "./parser/identifiers"
 
 let code = ""
 
@@ -11,12 +12,20 @@ let paths = []
 
 function transform(paths) {
 
+  initIndentifiers()
+
   let header = ""
+  let scriptContent
+  let identifiers = Object.create(null)
+  let index = 0
+  let reactives = []
+
+  let currentBindType = "text"
 
   let codes = paths.map(path => {
     switch (path.type) {
       case "script": {
-        header += transformScript(path.text).code
+        scriptContent = path.text
         return ""
       }
 
@@ -31,11 +40,9 @@ function transform(paths) {
       case "attr": {
         const nodeValue = path.nodeValue || ""
         const source = nodeValue.charAt(0) === "{" ? nodeValue.slice(1, -1) : nodeValue
-        const code = transformReactive(source).code.slice(0, -1)
-
-        console.warn(source, code)
-
-        return `, attr('${path.nodeName}', ${code})`
+        const {code, identifiers_mask} = transformReactive(source)
+        reactives[index] = code
+        return `, bind(attr('${path.nodeName}'), ${index++}, ${identifiers_mask})`
       }
 
       case "text": {
@@ -43,17 +50,25 @@ function transform(paths) {
       }
 
       case "identifier_block": {
-        const code = path.code.slice(1, -1).trim()
-        return `, identifier('${code}')`
+        let identifier = path.code.slice(1, -1).trim()
+        let code = setIndentifiers(identifier)
+        reactives[index] = `()=>${identifier}`
+        return `, bind(text(), ${index++}, ${code})`
       }
 
       case "blocks": {
-        const code = transformReactive(path.code.slice(1, -1)).code.slice(0, -1)
-        return `, blocks(${code})`
+        const {code, identifiers_mask} = transformReactive(path.code.slice(1, -1))
+        reactives[index] = code
+        return `, bind(text(), ${index++}, ${identifiers_mask})`
       }
     }
   }).join("")
 
+
+  console.table(identifiers)
+  console.table(reactives)
+
+  header += transformScript(scriptContent, reactives).code
 
   codes = `${header}\n\nconst r = render(createInstance${codes})`
   return codes
@@ -62,8 +77,7 @@ function transform(paths) {
 
 function parse() {
   [tokens, paths] = parseSvelte(text)
-
-  console.table(tokens)
+  // console.table(tokens)
   code = transform(paths)
 }
 

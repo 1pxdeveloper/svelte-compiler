@@ -247,7 +247,3 @@ export function parseSvelte(text) {
 
   return [tokens, paths.slice()]
 }
-
-
-{}
-

@@ -2,7 +2,7 @@ let dirty
 let props = Object.create(null)
 let bindings = []
 
-const invalidate = (key, value) => {
+const invalidate = (value, flag) => {
   dirty = dirty || requestAnimationFrame(updates) && Object.create(null)
   dirty[key] = true
   props[key] = value
