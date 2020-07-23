@@ -1,9 +1,12 @@
-import {setIndentifiers} from "./identifiers"
+import {setIndentifiers} from "./table/identifiers.js"
 
 const babel = Babel
 window.babel = babel
 
+
+let identifiers
 let identifiers_mask
+let $mutableTable
 
 function makeReactive({types: t}) {
   window.t = t
@@ -13,10 +16,10 @@ function makeReactive({types: t}) {
       Program(path) {
         if (path.shouldSkip) return
 
-        const keys = Object.keys(path.scope.globals)
-        identifiers_mask = keys.map(setIndentifiers).reduce((a, b) => a | b, 0)
+        identifiers = Object.keys(path.scope.globals)
+        identifiers_mask = identifiers.map(key => setIndentifiers(key, $mutableTable)).reduce((a, b) => a | b, 0)
 
-        console.log(identifiers_mask, identifiers_mask)
+        console.log("identifiers, identifiers_mask", identifiers, identifiers_mask)
 
         path.shouldSkip = true
         path.node.body = [t.arrowFunctionExpression([], path.node.body[0].expression)]
@@ -29,7 +32,11 @@ function makeReactive({types: t}) {
 
 babel.registerPlugin('makeReactive', makeReactive)
 
-export function transformReactive(source) {
+export function transformReactive(source, mutableTable) {
+  identifiers_mask = 0
+  identifiers = []
+  $mutableTable = mutableTable
+
   const output = babel.transform(source, {
     ast: false,
     comments: false,
@@ -38,13 +45,6 @@ export function transformReactive(source) {
   })
 
   output.identifiers_mask = identifiers_mask
-  console.log(source, output.code)
-
-  // if (output.ast.program.body[0] && output.ast.program.body[0].type !== "ExpressionStatement") {
-  //   throw new Error("{...} must be expression.")
-  // }
-
-  console.groupEnd()
-
+  console.warn(source, output.code)
   return output
 }

@@ -1,3 +1,5 @@
+// import {transformSvelte} from "../parser/index.js"
+
 const fs = require('fs');
 const path = require('path');
 
@@ -16,8 +18,7 @@ export default function mySvelete() {
 
       console.log("@@@@@@@@@@@@@@@@@@@@@@@", x)
 
-      return x
-
+      // return transformSvelte(x)
     }
   }
 }

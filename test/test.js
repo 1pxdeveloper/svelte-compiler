@@ -1,3 +1,2 @@
-import Test from "./Test.svelte"
-
-Test()
+// import Test from "../public/Test.svelte"
+// Test()
