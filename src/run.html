@@ -14,6 +14,8 @@
 let dirty
 let bindings = []
 
+const noop = () => {}
+
 const invalidate = (value, flag) => {
   dirty |= (dirty || requestAnimationFrame(updates) && flag)
 
@@ -23,6 +25,7 @@ const invalidate = (value, flag) => {
   return value
 }
 
+/// @TODO: 너무 꺼내고 하는게 많은데? 잘 정리 좀 해보자.
 const updates = () => {
   console.log('updates dirty', dirty)
   for (const binding of bindings) update(binding, dirty)
@@ -30,10 +33,9 @@ const updates = () => {
 }
 
 const update = (binding, dirty) => {
-  const [updateCallback, dataCallback, ...keys] = binding
-
+  let [value, updateCallback, dataCallback, ...keys] = binding
   for (const key of keys) {
-    if (key & dirty) return updateCallback(dataCallback())
+    if (key & dirty) return (value !== (binding[0] = value = dataCallback()) && updateCallback(value))
   }
 }
 
@@ -47,15 +49,17 @@ const element = (tagName, ...nodes) => (target, ctx) => {
   const el = document.createElement(tagName)
   for (const node of nodes) node(el, ctx)
   target.appendChild(el)
-  return () => {
-    console.log('destroy', 'element')
-  }
+  return () => [
+    () => {},
+    () => {}
+  ]
 }
 
 const attr = (nodeName, nodeValue = '') => (el) => {
   el.setAttribute(nodeName, nodeValue)
   return [
-    nodeValue => el.setAttribute(nodeName, nodeValue)
+    (nodeValue) => el.setAttribute(nodeName, nodeValue),
+    () => {}
   ]
 }
 
@@ -69,7 +73,7 @@ const text = (data = '') => (el) => {
 
 const bind = (callback, index, mask) => (el, ctx) => {
   const [updateCallback] = callback(el, ctx)
-  const binding = [updateCallback, ctx[index], mask]
+  const binding = [undefined, updateCallback, ctx[index], mask]
   bindings.push(binding)
   update(binding, mask)
 }
