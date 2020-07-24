@@ -19,10 +19,13 @@ function makeReactive({types: t}) {
         identifiers = Object.keys(path.scope.globals)
         identifiers_mask = identifiers.map(key => setIndentifiers(key, $mutableTable)).reduce((a, b) => a | b, 0)
 
-        console.log("identifiers, identifiers_mask", identifiers, identifiers_mask)
+        console.log("identifiers, identifiers_mask", identifiers, identifiers_mask, ({...path}))
 
         path.shouldSkip = true
-        path.node.body = [t.arrowFunctionExpression([], path.node.body[0].expression)]
+
+        if (path.node.body) {
+          path.node.body = [t.arrowFunctionExpression([], path.node.body[0].expression)]
+        }
 
         console.warn("Program", path)
       },

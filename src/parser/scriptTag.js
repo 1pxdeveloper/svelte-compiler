@@ -27,13 +27,13 @@ function markMutable(t, path, ...nodes) {
   }
 }
 
+
+// @TODO: 같은 블록에서는 한번만 invalidate해주면 좋을듯..
+
 function analyzeIdentifiers({types: t}) {
   return {
     visitor: {
       UpdateExpression(path) {
-
-        console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", path)
-
         markMutable(t, path, path.node.argument)
       },
 
@@ -41,6 +41,14 @@ function analyzeIdentifiers({types: t}) {
         if (t.isArrayPattern(path.node.left)) return markMutable(t, path, ...path.node.left.elements)
         markMutable(t, path, path.node.left)
       },
+
+      // BlockStatement(path) {
+      //   console.warn("BlockStatement", path)
+      // },
+      //
+      // ArrowFunctionExpression(path) {
+      //   console.warn("ArrowFunctionExpression", path)
+      // }
     }
   }
 }
@@ -78,8 +86,6 @@ function insertInvalidate(t, path, ...nodes) {
     while (node.object) node = node.object
     const key = node.name
 
-    console.log("key", key)
-
     if (!isMutable(path.scope, key)) continue
     if (!$identifiers[key]) continue
 
@@ -91,19 +97,21 @@ function insertInvalidate(t, path, ...nodes) {
 function makeInvalidate({types: t}) {
   window.t = t
 
+  console.warn("memo?? makeInvalidate")
+
   return {
     visitor: {
       UpdateExpression(path) {
         if (path.shouldSkip) return
-        if (path.scope.parent === null) return
         insertInvalidate(t, path, path.node.argument)
       },
 
-      AssignmentExpression(path) {
-        if (path.shouldSkip) return
-        if (path.scope.parent === null) return
-        if (t.isArrayPattern(path.node.left)) return insertInvalidate(t, path, ...path.node.left.elements)
-        insertInvalidate(t, path, path.node.left)
+      AssignmentExpression: {
+        exit(path) {
+          if (path.shouldSkip) return
+          if (t.isArrayPattern(path.node.left)) return insertInvalidate(t, path, ...path.node.left.elements)
+          insertInvalidate(t, path, path.node.left)
+        }
       },
 
       Program: {

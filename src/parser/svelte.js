@@ -122,7 +122,7 @@ function script() {
   attrs()
   next(">")
 
-  path.text = nextUntil("(close_script)")
+  path.textContent = nextUntil("(close_script)")
   next()
   return true
 }

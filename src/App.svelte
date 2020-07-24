@@ -8,10 +8,21 @@ let text = ""
 let tokens = []
 let paths = []
 
+let timer
+
+function input() {
+  clearTimeout(timer)
+  timer = setTimeout(parse, 500)
+}
+
 function parse() {
   [tokens, paths] = parseSvelte(text)
-  // console.table(tokens)
+
+  console.table(tokens)
+  console.table(paths)
+
   code = transform(paths)
+  iframe && iframe.contentWindow.location.reload()
 }
 
 fetch("/Test.svelte").then(res => res.text()).then(code => {
@@ -20,13 +31,24 @@ fetch("/Test.svelte").then(res => res.text()).then(code => {
 })
 
 
+let iframe
+
+const apply = () => {
+  setTimeout(() => {
+    iframe.contentWindow.eval(code)
+  }, 250)
+}
+
 </script>
 
 
 <div class="hbox">
-  <textarea class="flex" cols="80" rows="40" bind:value={text} on:input={parse}/>
+  <textarea class="flex" cols="80" rows="40" bind:value={text} on:input={input}/>
   <textarea class="flex" cols="80" rows="40" bind:value={code}></textarea>
 </div>
+
+
+<iframe src="/run.html" bind:this={iframe} frameborder="0" width="100%" height="300px" on:load={apply}></iframe>
 
 
 <!--  <table style="table-layout: fixed">-->

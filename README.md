@@ -1,91 +1,31 @@
-*Looking for a shareable component template? Go here --> [sveltejs/component-template](https://github.com/sveltejs/component-template)*
+# Svelte Clone Coding
 
----
-
-# svelte app
-
-This is a project template for [Svelte](https://svelte.dev) apps. It lives at https://github.com/sveltejs/template.
-
-To create a new project based on this template using [degit](https://github.com/Rich-Harris/degit):
-
-```bash
-npx degit sveltejs/template svelte-app
-cd svelte-app
-```
-
-*Note that you will need to have [Node.js](https://nodejs.org) installed.*
+- 빌드 환경을 통해 라이브러리가 아닌 컴파일러(트랜스파일러)의 형태로 최소한의 번들 코드를 제공하는 것이 목표
+- 스벨트의 기본 문법을 그대로 적용할 것
 
 
-## Get started
+# Beyond Svelte
 
-Install the dependencies...
+##### - 그럼에도 스벨트보다 좋아야 하는 점 
 
-```bash
-cd svelte-app
-npm install
-```
-
-...then start [Rollup](https://rollupjs.org):
-
-```bash
-npm run dev
-```
-
-Navigate to [localhost:5000](http://localhost:5000). You should see your app running. Edit a component file in `src`, save it, and reload the page to see your changes.
-
-By default, the server will only respond to requests from localhost. To allow connections from other computers, edit the `sirv` commands in package.json to include the option `--host 0.0.0.0`.
+- 더 적은 글자수의 컴파일 결과
+- HMR (Hot Module Replacement) 반드시 지원할 것
+- 개발환경에서 보다 빠른 빌드 속도를 지원할 것
+- $ auto-subscribe의 강화 ($방식도 좋지만 번거로운 코딩이 많다.)
+- BEM을 지원하는 class 확장 문법 ex) class:my-video--{focus} 와 같은 축약 기능
+- style:background-image|url={src} 와 같은 style directive 제공
+- rxjs, typescript를 공식적으로 지원할것
+ 
 
 
-## Building and running in production mode
+# 컴파일러
 
-To create an optimised version of the app:
+##### 스크립트 태그
 
-```bash
-npm run build
-```
-
-You can run the newly built app with `npm run start`. This uses [sirv](https://github.com/lukeed/sirv), which is included in your package.json's `dependencies` so that the app will work when you deploy to platforms like [Heroku](https://heroku.com).
+- 대입연산자, 증감연산자의 경우 invalidate({expression}, identifier_flag)
+- 블록내의 중복 invalidate 제거
+- 태그에서 사용하지 않은 identifier 제거
 
 
-## Single-page app mode
-
-By default, sirv will only respond to requests that match files in `public`. This is to maximise compatibility with static fileservers, allowing you to deploy your app anywhere.
-
-If you're building a single-page app (SPA) with multiple routes, sirv needs to be able to respond to requests for *any* path. You can make it so by editing the `"start"` command in package.json:
-
-```js
-"start": "sirv public --single"
-```
 
 
-## Deploying to the web
-
-### With [Vercel](https://vercel.com)
-
-Install `vercel` if you haven't already:
-
-```bash
-npm install -g vercel
-```
-
-Then, from within your project folder:
-
-```bash
-cd public
-vercel deploy --name my-project
-```
-
-### With [surge](https://surge.sh/)
-
-Install `surge` if you haven't already:
-
-```bash
-npm install -g surge
-```
-
-Then, from within your project folder:
-
-```bash
-npm run build
-surge public my-project.surge.sh
-```

@@ -25,7 +25,7 @@ export function transform(paths) {
   let codes = paths.map(path => {
     switch (path.type) {
       case "script": {
-        scriptContent = path.text
+        scriptContent = path.textContent
         return ""
       }
 
@@ -41,7 +41,7 @@ export function transform(paths) {
         const {nodeName, nodeValue = ''} = path
         const [prefix, nodeName2] = nodeName.split(":", 2)
 
-        const source = nodeValue.charAt(0) === "{" ? nodeValue.slice(1, -1) : nodeValue
+        const source = nodeValue.charAt(0) === "{" ? nodeValue.slice(1, -1) : '`' + nodeValue.slice(1, -1) + '`'
         const {code, identifiers_mask} = transformReactive(source, mutableTable)
         const index = setReactive(code)
 
@@ -87,7 +87,7 @@ export function transform(paths) {
 
   header += transformScript(scriptContent, mutableTable, reactive, identifiers).code
 
-  codes = `${header}\n\nconst r = render(createInstance${codes})`
+  codes = `${header}\n\nrender(createInstance${codes})(document.body)`
   return codes
 }
 

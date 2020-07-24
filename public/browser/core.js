@@ -1,7 +1,7 @@
 let dirty
 let bindings = []
 
-export const invalidate = (value, flag) => {
+const invalidate = (value, flag) => {
   dirty |= (dirty || requestAnimationFrame(updates) && flag)
 
   console.log('invalidate', value, flag)
@@ -28,12 +28,12 @@ const update = (binding, dirty) => {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const noop = () => {}
 
-export const render = (createInstance, ...nodes) => (target) => {
+const render = (createInstance, ...nodes) => (target) => {
   const ctx = createInstance(invalidate)
   for (const node of nodes) node(target, ctx)
 }
 
-export const element = (tagName, ...nodes) => (target, ctx) => {
+const element = (tagName, ...nodes) => (target, ctx) => {
   const el = document.createElement(tagName)
   for (const node of nodes) node(el, ctx)
   target.appendChild(el)
@@ -43,7 +43,7 @@ export const element = (tagName, ...nodes) => (target, ctx) => {
   ]
 }
 
-export const attr = (nodeName, nodeValue = '') => (el) => {
+const attr = (nodeName, nodeValue = '') => (el) => {
   el.setAttribute(nodeName, nodeValue)
   return [
     (nodeValue) => el.setAttribute(nodeName, nodeValue),
@@ -51,7 +51,7 @@ export const attr = (nodeName, nodeValue = '') => (el) => {
   ]
 }
 
-export const text = (data = '') => (el) => {
+const text = (data = '') => (el) => {
   const textNode = document.createTextNode(data)
   el.appendChild(textNode)
   return [
@@ -59,14 +59,14 @@ export const text = (data = '') => (el) => {
   ]
 }
 
-export const watch = (callback, index, mask) => (el, ctx) => {
+const watch = (callback, index, mask) => (el, ctx) => {
   const [updateCallback] = callback(el, ctx)
   const binding = [undefined, updateCallback, ctx[index], mask]
   bindings.push(binding)
   update(binding, mask)
 }
 
-export const on = (type, index) => (el, ctx) => {
+const on = (type, index) => (el, ctx) => {
   const listener = ctx[index]()
   el.addEventListener(type, listener)
   return [
