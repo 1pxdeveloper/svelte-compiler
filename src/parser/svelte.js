@@ -1,15 +1,18 @@
 const createEscapeOneLineRegexp = (open, close = open, ...blocks) => new RegExp(`${open}(?:${blocks.map(b => b + '|').join('')}\\\\.|[^\\\\${close}\n])*${close}`)
 const string1 = createEscapeOneLineRegexp('"')
 const string2 = createEscapeOneLineRegexp("'")
-const string3 = createEscapeOneLineRegexp("`")
+// const string3 = createEscapeOneLineRegexp("`")
+
 const regexp_bracket = createEscapeOneLineRegexp("\\[", "\\]")
 const regexp = createEscapeOneLineRegexp("\\/", "\\/", regexp_bracket.source)
+
 const open_script = /<script(?=[\s>])/
 const close_script = /<\/script\s*>/
 const open_tag = /<[^\s/>]+/
 const close_tag = /<\/[^\s>]+\s*>/
-const content = /[^\s"'`<>/={}]+/
-const operator = /\/>|[={}>]/
+const content = /[^\s"'<>={}:]+/
+const operator = /\/>|[&="'{}>:]/
+
 const identifier_block = /\{\s*[$_\p{ID_Start}](?:[$_\u200C\u200D\p{ID_Continue}])*\s*\}/u
 
 const lex = [
@@ -19,8 +22,7 @@ const lex = [
   ["(close_tag)", close_tag],
   ["(string)", string1],
   ["(string)", string2],
-  ["(template)", string3],
-  ["(regexp)", regexp],
+  // ["(template)", string3],
   ["(identifier_block)", identifier_block],
   ["(text)", content],
   ["(operator)", operator],
@@ -30,30 +32,32 @@ const lex = [
 
 const re = new RegExp(lex.map(([type, regexp]) => "(" + regexp.source + ")").join("|"), "gu")
 
-const createToken = (id, value) => ({id, value})
+const createToken = (id, value, pos) => ({id, value, pos})
 
 function tokenize(re, text) {
   let res = []
 
   text.replace(re, (value, ...args) => {
+    args.pop()
+    const pos = args.pop()
     const index = args.indexOf(value)
     const type = lex[index][0]
 
     switch (type) {
       case "(open_tag)":
-        res.push(createToken(type, value.slice(1)))
+        res.push(createToken(type, value.slice(1), pos))
         return value
 
       case "(close_tag)":
-        res.push(createToken(type, value.slice(2, -1).trim()))
+        res.push(createToken(type, value.slice(2, -1).trim(), pos))
         return value
 
       case "(operator)":
-        res.push(createToken(value, value))
+        res.push(createToken(value, value, pos))
         return value
     }
 
-    res.push(createToken(type, value))
+    res.push(createToken(type, value, pos))
     return value
   })
 
@@ -181,9 +185,9 @@ function attr() {
     next()
     ws()
 
-    if (token.id === "(string)") path.nodeValue = next().value || ""
-    else if (token.id === "(identifier_block)") path.nodeValue = next().value || ""
-    else if (token.id === "{") path.nodeValue = brace() || ""
+    if (token.id === "(string)") path.nodeValue = transformTemplate(next().value) || ''
+    else if (token.id === "(identifier_block)") path.nodeValue = next().value || ''
+    else if (token.id === "{") path.nodeValue = brace() || ''
     else throw new SyntaxError("invalid token!" + token.value)
   }
 }
@@ -246,4 +250,33 @@ export function parseSvelte(text) {
   } catch (e) { console.error(e) }
 
   return [tokens, paths.slice()]
+}
+
+
+export function transformTemplate(string) {
+  const rollback = [tokens, index, paths, token]
+  tokens = tokenize(re, string.slice(1, -1))
+  index = 0
+  paths = []
+  next()
+
+
+  console.table(tokens)
+
+
+  let code = '`'
+
+  while (token) {
+    code += nextUntil("(identifier_block)", "{")
+    if (token.id === "{") code += '$' + brace()
+    else if (token.id === "(identifier_block)") code += '222$' + next().value
+  }
+
+  code += '`'
+
+  tokens = rollback[0]
+  index = rollback[1]
+  paths = rollback[2]
+  token = rollback[3]
+  return code
 }

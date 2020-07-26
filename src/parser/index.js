@@ -15,7 +15,7 @@ export function transform(paths) {
 
   paths.forEach(path => {
     if (path.type === "script") {
-      analyzeScript(path.text, mutableTable)
+      analyzeScript(path.textContent, mutableTable)
     }
   })
 
@@ -41,7 +41,7 @@ export function transform(paths) {
         const {nodeName, nodeValue = ''} = path
         const [prefix, nodeName2] = nodeName.split(":", 2)
 
-        const source = nodeValue.charAt(0) === "{" ? nodeValue.slice(1, -1) : '`' + nodeValue.slice(1, -1) + '`'
+        const source = nodeValue.charAt(0) === "{" ? nodeValue.slice(1, -1) : nodeValue
         const {code, identifiers_mask} = transformReactive(source, mutableTable)
         const index = setReactive(code)
 
@@ -60,19 +60,12 @@ export function transform(paths) {
         return `, text('${path.nodeValue}')`
       }
 
-      case "identifier_block": {
-        const identifier = path.code.slice(1, -1).trim()
-        const code = `()=>${identifier}`
-        const identifiers_mask = setIndentifiers(identifier, mutableTable)
-
-        const index = setReactive(code)
-        return `, watch(text(), ${index}, ${identifiers_mask})`
-      }
-
+      case "identifier_block":
       case "blocks": {
-        const {code, identifiers_mask} = transformReactive(path.code.slice(1, -1), mutableTable)
-
+        const source = path.code.slice(1, -1).trim()
+        const {code, identifiers_mask} = transformReactive(source, mutableTable)
         const index = setReactive(code)
+
         return `, watch(text(), ${index}, ${identifiers_mask})`
       }
     }
