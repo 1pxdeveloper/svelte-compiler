@@ -1,4 +1,4 @@
-import {transformReactive} from "./reactive.js"
+import {transformReactive} from "./babel/reactive.js"
 import {parseSvelte} from "./svelte.js"
 import {setIndentifiers} from "./table/identifiers.js"
 import {setReactive} from "./table/reactives.js"

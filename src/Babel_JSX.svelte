@@ -20,9 +20,6 @@ const lex = [
 
 const re = new RegExp(lex.map(([type, regexp]) => "(" + regexp.source + ")").join("|"), "gu")
 
-
-
-
 const script = `{ x + y } skdfjlskdf asdf`
 
 

@@ -39,6 +39,8 @@ const apply = () => {
   }, 250)
 }
 
+let x = {}
+
 </script>
 
 
@@ -48,7 +50,7 @@ const apply = () => {
 </div>
 
 
-<iframe src="/run.html" bind:this={iframe} frameborder="0" width="100%" height="300px" on:load={apply}></iframe>
+<iframe test="aksdfjsdf" {iframe} {...x} y={x + '2>0'} src="/run.html" bind:this={iframe} frameborder="0" width="100%" height="300px" on:load={apply}></iframe>
 
 
 <!--  <table style="table-layout: fixed">-->

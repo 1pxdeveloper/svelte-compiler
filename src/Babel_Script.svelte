@@ -1,5 +1,5 @@
 <script>
-import {transformScript} from "./parser/scriptTag.js"
+import {transformScript} from "./parser/babel/scriptTag.js"
 
 
 // language=js

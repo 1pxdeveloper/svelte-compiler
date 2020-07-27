@@ -1,14 +1,14 @@
 <script>
-const createEscapeOneLineRegexp = (open, close = open, ...blocks) => new RegExp(`${open}(?:${blocks.map(b => b + '|').join('')}\\\\.|[^\\\\${close}\n])*${close}`)
-const string1 = createEscapeOneLineRegexp('"')
-const string2 = createEscapeOneLineRegexp("'")
-const template = createEscapeOneLineRegexp("`")
-const templateStart = createEscapeOneLineRegexp("`", "\\$\\{")
-const templateMid = createEscapeOneLineRegexp("}", "\\$\\{")
-const templateEnd = createEscapeOneLineRegexp("}", "`")
+const createEscapeRegexp = (open, close = open, ...blocks) => new RegExp(`${open}(?:${blocks.map(b => b + '|').join('')}\\\\.|[^\\\\${close}])*${close}`)
+const string1 = createEscapeRegexp('"')
+const string2 = createEscapeRegexp("'")
+const template = createEscapeRegexp("`")
+const templateStart = createEscapeRegexp("`", "\\$\\{")
+const templateMid = createEscapeRegexp("}", "\\$\\{")
+const templateEnd = createEscapeRegexp("}", "`")
 
-const regexp_bracket = createEscapeOneLineRegexp("\\[", "\\]")
-const regexp = createEscapeOneLineRegexp("\\/", "\\/", regexp_bracket.source)
+const regexp_bracket = createEscapeRegexp("\\[", "\\]")
+const regexp = createEscapeRegexp("\\/", "\\/", regexp_bracket.source)
 
 const operator = /[{}]/
 const content = /[^'"`{}\s]+/

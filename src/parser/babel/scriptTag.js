@@ -71,7 +71,7 @@ export function analyzeScript(source, mutableTable) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import {setIndentifiers} from "./table/identifiers.js"
+import {setIndentifiers} from "../table/identifiers.js"
 
 let $reactives
 let $identifiers

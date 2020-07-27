@@ -1,6 +1,6 @@
 import {initIndentifiers, setIndentifiers} from "./table/identifiers.js"
-import {transformReactive} from "./reactive.js"
-import {analyzeScript, transformScript} from "./scriptTag.js"
+import {transformReactive} from "./babel/reactive.js"
+import {analyzeScript, transformScript} from "./babel/scriptTag.js"
 import {parseSvelte} from "./svelte.js"
 import {initReactive, setReactive} from "./table/reactives.js"
 

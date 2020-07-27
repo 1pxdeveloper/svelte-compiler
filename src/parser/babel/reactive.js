@@ -1,4 +1,4 @@
-import {setIndentifiers} from "./table/identifiers.js"
+import {setIndentifiers} from "../table/identifiers.js"
 
 const babel = Babel
 window.babel = babel
