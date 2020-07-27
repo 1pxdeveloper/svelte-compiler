@@ -45,7 +45,7 @@ let x = {}
 
 
 <div class="hbox">
-  <textarea class="flex" cols="80" rows="40" bind:value={text} on:input={input}/>
+  <textarea h=2 class="flex" cols="80" rows="40" bind:value={text} on:input={input}/>
   <textarea class="flex" cols="80" rows="40" bind:value={code}></textarea>
 </div>
 
