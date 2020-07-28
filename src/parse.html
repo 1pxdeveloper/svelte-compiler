@@ -6,11 +6,12 @@
 </head>
 <body>
 
+
 <div id="a" style="white-space: pre-wrap;"></div>
 
 <script>
 let count = 0
-let source = `asdfsd<div  {x} {x+y/z}   {...y} test='123' id="123"  {x + y / 2} on:click={() => \`kdjk a}} s ${{x: 10}.x}dk\`}>askldfjalskjdflksd</div>`
+let source = ""
 
 const a = document.getElementById("a")
 
@@ -18,7 +19,6 @@ function dispatch(type, value) {
   // console.table({[type]: value})
   console.log(type, value)
   a.innerText += type + " " + value + "\n"
-
 }
 
 const createRepeat = (...args) => (...until) => () => {
@@ -33,10 +33,7 @@ const createRepeat = (...args) => (...until) => () => {
 
   while (source) {
     const m = re.exec(source)
-    if (!m) {
-      throw new Error("invalid. " + source + " " + re)
-    }
-
+    if (!m) {throw new Error("invalid. " + source + " " + re)}
     source = RegExp.rightContext
 
     const index = m.slice(1).findIndex(arg => arg !== undefined)
@@ -57,8 +54,11 @@ const ws = ["(ws)", /(\s+)/, null, true]
 
 
 /// root
-const commentStart = ["(commentStart)", /(<!--)/u, () => comments]
-const rawTextStartTags = ["(rawTextStartTags)", /<(script|style)(?=[\s>])/u, () => rawTextElement]
+const commentsStart = ["(commentsStart)", /([<]!--)/u, () => comments]
+const commentsText = ["(commentsText)", /()/u, () => comments]
+const commentsEnd = ["(commentsEnd)", /(-->)/u, () => comments]
+
+const rawTextStartTags = ["(rawTextStartTags)", /<(script|style)(?=\s|>)/u, () => rawTextElement]
 const startTags = ["(startTag)", /<([^\s\/>]+)/u, () => attrs]
 const endTags = ["(endTags)", /<\/([^>\s]+)[^>]*>/u]
 const characters = ["(characters)", /([^<{]+)/u]
@@ -71,20 +71,20 @@ const attrOperator = ["=", /(\s*=\s*)/u, () => attrValue]
 const attrEnd = ["(attrEnd)", /(\/>|>)/u]
 
 
-/// attrValues
+/// attrValue
 const unquoted = ["(unquoted)", /([^\s?"'=<>`{]+)/u]
 
-const string1Start = ["(string1Start)", /(")/u, () => string1]
-const string1Characters = ["(string1Characters)", /([^"]+)/u]
-const string1End = ["(string1End)", /(")/u]
+const singleQuotedStart = ["(singleQuotedStart)", /(')/u, () => singleQuotedAttrValue]
+const singleQuotedCharacters = ["(singleQuotedCharacters)", /([^']+)/u]
+const singleQuotedEnd = ["(singleQuotedEnd)", /(')/u]
 
-const string2Start = ["(string2Start)", /(')/u, () => string2]
-const string2Characters = ["(string2Characters)", /([^']+)/u]
-const string2End = ["(string2End)", /(')/u]
+const doubleQuotedStart = ["(doubleQuotedStart)", /(")/u, () => doubleQuotedAttrValue]
+const doubleQuotedCharacters = ["(doubleQuotedCharacters)", /([^"]+)/u]
+const doubleQuotedEnd = ["(doubleQuotedEnd)", /(")/u]
 
 
 /// interpolation
-const interpolationStart = ["{", /(\{)/u, () => interpolation]
+const interpolationStart = ["(interpolationStart)", /(\{)/u, () => interpolation]
 const interpolationCharacters = ["(interpolationCharacters)", /([^"'`{}]+)/u]
 const interpolationEnd = ["(interpolationEnd)", /(\})/u]
 
@@ -107,7 +107,7 @@ const parse = () => {
 const comments = () => {
   const lastIndex = source.indexOf("-->")
 
-  dispatch("textContent", source.slice(0, lastIndex))
+  dispatch("(textContent)", source.slice(0, lastIndex))
   source = source.slice(lastIndex)
 
   dispatch("(commentEnd)", "-->")
@@ -121,16 +121,16 @@ const rawTextElement = () => {
   attrs()
 
   const lastIndex = source.indexOf(endTag)
-  dispatch("textContent", source.slice(0, lastIndex))
+  dispatch("(textContent)", source.slice(0, lastIndex))
   source = source.slice(lastIndex)
 }
 
-const nodes = createRepeat(commentStart, rawTextStartTags, startTags, endTags, characters, interpolationStart)()
+const nodes = createRepeat(commentsStart, rawTextStartTags, startTags, endTags, characters, interpolationStart)()
 const attrs = createRepeat(ws, attrName, interpolationStart)(attrEnd)
 const attr = createRepeat(attrOperator, attrEmpty)()
-const attrValue = createRepeat(unquoted, string1Start, string2Start, interpolationStart)()
-const string1 = createRepeat(string1Characters)(string1End)
-const string2 = createRepeat(string2Characters)(string2End)
+const attrValue = createRepeat(unquoted, singleQuotedStart, doubleQuotedStart, interpolationStart)()
+const singleQuotedAttrValue = createRepeat(singleQuotedCharacters)(singleQuotedEnd)
+const doubleQuotedAttrValue = createRepeat(doubleQuotedCharacters)(doubleQuotedEnd)
 const interpolation = createRepeat(interpolationCharacters, js_string1, js_string2, js_string3)(interpolationEnd)
 
 
