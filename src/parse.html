@@ -6,28 +6,30 @@
 </head>
 <body>
 
+<div id="a" style="white-space: pre-wrap;"></div>
 
 <script>
 let count = 0
-
 let source = `asdfsd<div  {x} {x+y/z}   {...y} test='123' id="123"  {x + y / 2} on:click={() => \`kdjk a}} s ${{x: 10}.x}dk\`}>askldfjalskjdflksd</div>`
-let lastParser = parse
 
+const a = document.getElementById("a")
 
 function dispatch(type, value) {
   // console.table({[type]: value})
   console.log(type, value)
+  a.innerText += type + " " + value + "\n"
+
 }
 
-const $repeat = (...args) => (...until) => {
+const createRepeat = (...args) => (...until) => () => {
   if (!source) return
 
-  if (count++ > 100) {
+  if (count++ > 1000) {
     throw new Error("max circular")
   }
 
   const concated = args.concat(until)
-  const re = new RegExp("^(?:" + concated.map(arg => arg[1].source).join("|") + ")")
+  const re = new RegExp("^(?:" + concated.map(arg => arg[1].source).join("|") + ")", "u")
 
   while (source) {
     const m = re.exec(source)
@@ -41,47 +43,50 @@ const $repeat = (...args) => (...until) => {
     const target = concated[index]
 
     const [type, reg, next, isSkip] = target
-
     !isSkip && dispatch(type, m[0])
-    next && next()
 
+    next && next()()
     if (index >= args.length) break
     if (until.length === 0) break
   }
 }
 
 
+/// common
 const ws = ["(ws)", /(\s+)/, null, true]
 
 
 /// root
-const comment = ["(comment)", /(<!--)/, parse]
-const rawTextStartTags = ["(rawTextStartTags)", /<(script|style)(?=[\s>])/, rawTextElement]
-const startTags = ["(startTag)", /<([^\s\/>]+)/, attrs]
-const endTags = ["(endTags)", /<\/([^>\s]+)[^>]*>/, parse]
-const characters = ["(characters)", /([^<{]+)/, parse]
+const commentStart = ["(commentStart)", /(<!--)/u, () => comments]
+const rawTextStartTags = ["(rawTextStartTags)", /<(script|style)(?=[\s>])/u, () => rawTextElement]
+const startTags = ["(startTag)", /<([^\s\/>]+)/u, () => attrs]
+const endTags = ["(endTags)", /<\/([^>\s]+)[^>]*>/u]
+const characters = ["(characters)", /([^<{]+)/u]
 
 
 /// attr
-const attrName = ["(attrName)", /([^\s"'<>=/{]+)/, attr]
-const attrOperator = ["=", /(\s*=\s*)/, attrValue]
-const attrEnd = ["(attrEnd)", /(\/>|>)/, parse]
+const attrName = ["(attrName)", /([^\s"'<>=/{]+)/u, () => attr]
+const attrEmpty = ["(attrEmpty)", /((?=[\s/>]))/u]
+const attrOperator = ["=", /(\s*=\s*)/u, () => attrValue]
+const attrEnd = ["(attrEnd)", /(\/>|>)/u]
 
 
 /// attrValues
-const unquoted = ["(unquoted)", /([^\s?"'=<>`{]+)/]
+const unquoted = ["(unquoted)", /([^\s?"'=<>`{]+)/u]
 
-const string1Start = ["(string1Start)", /(")/, string1]
-const string1Characters = ["(string1Characters)", /([^"]+)/]
-const string1End = ["(string1End)", /(")/]
+const string1Start = ["(string1Start)", /(")/u, () => string1]
+const string1Characters = ["(string1Characters)", /([^"]+)/u]
+const string1End = ["(string1End)", /(")/u]
 
-const string2Start = ["(string2Start)", /(')/, string2]
-const string2Characters = ["(string2Characters)", /([^']+)/]
-const string2End = ["(string2End)", /(')/]
+const string2Start = ["(string2Start)", /(')/u, () => string2]
+const string2Characters = ["(string2Characters)", /([^']+)/u]
+const string2End = ["(string2End)", /(')/u]
 
-const interpolationStart = ["{", /({)/, interpolation]
-const interpolationCharacters = ["(interpolationCharacters)", /([^"'`{}]+)/]
-const interpolationEnd = ["(interpolationEnd)", /(})/]
+
+/// interpolation
+const interpolationStart = ["{", /(\{)/u, () => interpolation]
+const interpolationCharacters = ["(interpolationCharacters)", /([^"'`{}]+)/u]
+const interpolationEnd = ["(interpolationEnd)", /(\})/u]
 
 
 /// js
@@ -90,53 +95,52 @@ const re_js_string1 = createEscapeOneLineRegexp("'")
 const re_js_string2 = createEscapeOneLineRegexp('"')
 const re_js_string3 = createEscapeOneLineRegexp("`")
 
-const js_string1 = ["(js/string1)", new RegExp('(' + re_js_string1.source + ')')]
-const js_string2 = ["(js/string2)", new RegExp('(' + re_js_string2.source + ')')]
-const js_string3 = ["(js/string3)", new RegExp('(' + re_js_string3.source + ')')]
+const js_string1 = ["(js/string1)", new RegExp('(' + re_js_string1.source + ')', 'u')]
+const js_string2 = ["(js/string2)", new RegExp('(' + re_js_string2.source + ')', 'u')]
+const js_string3 = ["(js/string3)", new RegExp('(' + re_js_string3.source + ')', 'u')]
 
 
-function parse() {
-  $repeat(comment, rawTextStartTags, startTags, endTags, characters, interpolationStart)()
+const parse = () => {
+  while (source) nodes()
 }
 
-function rawTextElement() {
-  let startTag = RegExp.lastMatch
-  let endTag = "</" + startTag.slice(1)
-  let lastIndex = source.indexOf(endTag)
+const comments = () => {
+  const lastIndex = source.indexOf("-->")
 
-  dispatch("text", source.slice(0, lastIndex))
+  dispatch("textContent", source.slice(0, lastIndex))
   source = source.slice(lastIndex)
-  parse()
+
+  dispatch("(commentEnd)", "-->")
+  source = source.slice(3)
 }
 
-function attrs() {
-  $repeat(ws, attrName, interpolationStart)(attrEnd)
+const rawTextElement = () => {
+  const startTag = RegExp.lastMatch
+  const endTag = "</" + startTag.slice(1)
+
+  attrs()
+
+  const lastIndex = source.indexOf(endTag)
+  dispatch("textContent", source.slice(0, lastIndex))
+  source = source.slice(lastIndex)
 }
 
-function attr() {
-  $repeat(attrOperator)()
-}
-
-function attrValue() {
-  $repeat(unquoted, string1Start, string2Start, interpolationStart)()
-}
-
-function string1() {
-  $repeat(string1Characters)(string1End)
-}
-
-function string2() {
-  $repeat(string2Characters)(string2End)
-}
-
-function interpolation() {
-  $repeat(interpolationCharacters, js_string1, js_string2, js_string3)(interpolationEnd)
-}
+const nodes = createRepeat(commentStart, rawTextStartTags, startTags, endTags, characters, interpolationStart)()
+const attrs = createRepeat(ws, attrName, interpolationStart)(attrEnd)
+const attr = createRepeat(attrOperator, attrEmpty)()
+const attrValue = createRepeat(unquoted, string1Start, string2Start, interpolationStart)()
+const string1 = createRepeat(string1Characters)(string1End)
+const string2 = createRepeat(string2Characters)(string2End)
+const interpolation = createRepeat(interpolationCharacters, js_string1, js_string2, js_string3)(interpolationEnd)
 
 
 fetch("./App.svelte").then(res => res.text()).then(text => {
+  console.time("1")
+
   source = text
   parse(source)
+
+  console.timeEnd("1")
 })
 
 
