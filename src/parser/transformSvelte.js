@@ -1,8 +1,12 @@
 import {initIndentifiers, setIndentifiers} from "./table/identifiers.js"
 import {transformReactive} from "./babel/reactive.js"
 import {analyzeScript, transformScript} from "./babel/scriptTag.js"
-import {parseSvelte} from "./svelte.js"
+import {parseSvelte} from "./parseSvelte.js"
 import {initReactive, setReactive} from "./table/reactives.js"
+
+
+const quote = (str) => `'${String(str).replace(/\n/g, "\\n").replace(/'/g, "\\x27")}'`
+
 
 export function transform(paths) {
 
@@ -14,7 +18,7 @@ export function transform(paths) {
   let scriptContent = ""
 
   paths.forEach(path => {
-    if (path.type === "script") {
+    if (path.type === "rawTextElement" && path.tagName === "script") {
       analyzeScript(path.textContent, mutableTable)
     }
   })
@@ -22,15 +26,15 @@ export function transform(paths) {
   console.log("------------------- mutableTable ---------------------")
   console.table(mutableTable)
 
-  let codes = paths.map(path => {
-    switch (path.type) {
-      case "script": {
-        scriptContent = path.textContent
+  let codes = paths.map(({type, tagName, name, value, textContent, isWatch}) => {
+    switch (type) {
+      case "rawTextElement": {
+        scriptContent = textContent
         return ""
       }
 
       case "elementOpen": {
-        return `,\nelement('${path.tagName}'`
+        return `,\nelement('${tagName}'`
       }
 
       case "elementClose": {
@@ -38,33 +42,39 @@ export function transform(paths) {
       }
 
       case "attr": {
-        const {nodeName, nodeValue = ''} = path
-        const [prefix, nodeName2] = nodeName.split(":", 2)
+        const [prefix, name2] = name.split(":", 2)
 
-        const source = nodeValue.charAt(0) === "{" ? nodeValue.slice(1, -1) : nodeValue
-        const {code, identifiers_mask} = transformReactive(source, mutableTable)
-        const index = setReactive(code)
+        const source = value.charAt(0) === "{" ? value.slice(1, -1) : value
+        const {code, index, identifiers_mask} = transformReactive(source, mutableTable)
 
-        if (!nodeName2) {
-          return `, watch(attr('${nodeName}'), ${index}, ${identifiers_mask})`
+        if (!name2) {
+          return `, watch(attr('${name}'), ${index}, ${identifiers_mask})`
         }
 
         if (prefix === "on") {
-          return `, on('${nodeName2}', ${index})`
+          return `, on('${name2}', ${index})`
         }
 
-        throw new TypeError('not defined! ' + nodeName)
+        if (prefix === "class") {
+          return `, watch(classList('${name2}'), ${index}, ${identifiers_mask})`
+        }
+
+        throw new TypeError('not defined! ' + prefix, name2, name)
       }
 
       case "text": {
-        return `, text('${path.nodeValue}')`
+        if (isWatch) {
+          const source = value.slice(1, -1).trim()
+          const {code, index, identifiers_mask} = transformReactive(source, mutableTable)
+          return `, watch(text(), ${index}, ${identifiers_mask})`
+        }
+        return `, text(${quote(textContent)})`
       }
 
       case "identifier_block":
       case "blocks": {
         const source = path.code.slice(1, -1).trim()
-        const {code, identifiers_mask} = transformReactive(source, mutableTable)
-        const index = setReactive(code)
+        const {code, index, identifiers_mask} = transformReactive(source, mutableTable)
 
         return `, watch(text(), ${index}, ${identifiers_mask})`
       }

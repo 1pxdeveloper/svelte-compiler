@@ -77,7 +77,7 @@ let $reactives
 let $identifiers
 
 function makeInvalidateExpression(t, path, key) {
-  const args = [path.node, t.numericLiteral(setIndentifiers(key, $mutableTable))]
+  const args = [t.numericLiteral(setIndentifiers(key, $mutableTable)), path.node]
   return t.expressionStatement(t.callExpression(t.identifier(INVALIDATE_FUNC_NAME), args))
 }
 

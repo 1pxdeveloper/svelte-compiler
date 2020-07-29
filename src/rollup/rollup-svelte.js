@@ -1,4 +1,4 @@
-// import {transformSvelte} from "../parser/index.js"
+// import {transformSvelte} from "../parser/transformSvelte.js"
 
 const fs = require('fs');
 const path = require('path');

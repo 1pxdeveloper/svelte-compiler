@@ -1,18 +1,10 @@
 let dirty
 let bindings = []
 
-const invalidate = (value, flag) => {
-  dirty |= (dirty || requestAnimationFrame(updates) && flag)
-
-  console.log('invalidate', value, flag)
-  console.log('bindings', bindings)
-
-  return value
-}
+const invalidate = (flag, value) => (dirty |= (dirty || requestAnimationFrame(updates), flag), value)
 
 /// @TODO: 너무 꺼내고 하는게 많은데? 잘 정리 좀 해보자.
 const updates = () => {
-  console.log('updates dirty', dirty)
   for (const binding of bindings) update(binding, dirty)
   dirty = 0
 }
@@ -72,5 +64,11 @@ const on = (type, index) => (el, ctx) => {
   return [
     noop,
     () => el.removeEventListener(type, listener)
+  ]
+}
+
+const classList = (className) => (el) => {
+  return [
+    (flag) => el.classList.toggle(className, !!flag)
   ]
 }

@@ -1,4 +1,5 @@
 import {setIndentifiers} from "../table/identifiers.js"
+import {setReactive} from "../table/reactives"
 
 const babel = Babel
 window.babel = babel
@@ -47,6 +48,7 @@ export function transformReactive(source, mutableTable) {
     plugins: ['makeReactive']
   })
 
+  output.index = setReactive(output.code)
   output.identifiers_mask = identifiers_mask
   console.warn(source, output.code)
   return output

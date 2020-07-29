@@ -1,6 +1,6 @@
 <script>
-import {transform} from "./parser"
-import {parseSvelte} from "./parser/svelte"
+import {transform} from "./parser/transformSvelte"
+import {parseSvelte} from "./parser/parseSvelte"
 
 let code = ""
 
@@ -51,19 +51,6 @@ let x = {}
 
 
 <iframe test="aksdfjsdf" {iframe} {...x} y={x + '2>0'} src="/run.html" bind:this={iframe} frameborder="0" width="100%" height="300px" on:load={apply}></iframe>
-
-
-<!--  <table style="table-layout: fixed">-->
-<!--    {#each paths as path}-->
-<!--      <tr>-->
-<!--        <td style="padding: 0 30px">{path.type}</td>-->
-<!--        <td>{JSON.stringify(path)}</td>-->
-<!--      </tr>-->
-<!--    {/each}-->
-<!--  </table>-->
-
-<!--  <br>-->
-<!--  <br>-->
 
 
 <style globals>
