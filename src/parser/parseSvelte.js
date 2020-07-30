@@ -72,6 +72,13 @@ const doubleQuotedCharacters = ["(doubleQuotedCharacters)", /([^"{]+)/u]
 const doubleQuotedEnd = ["(doubleQuotedEnd)", /(")/u]
 
 
+/// blocks
+const blockOpenStart = ["(blockOpenStart)", /(\{\s*(?:(?::else\s+if\s+)|(?:[#@:][^\s}]+)))/u, () => blocks]
+const blockCloseStart = ["(blockCloseStart)", /(\{\s*[/][^\s}]+)/u, () => blocks]
+const blockCharacters = ["(blockCharacters)", /([^"'`{}]+)/u]
+const blockEnd = ["(blockEnd)", /(\})/u]
+
+
 /// interpolation
 const interpolationStart = ["(interpolationStart)", /(\{)/u, () => interpolation]
 const interpolationCharacters = ["(interpolationCharacters)", /([^"'`{}]+)/u]
@@ -114,13 +121,14 @@ const rawTextElement = () => {
   source = source.slice(lastIndex)
 }
 
-const nodes = createRepeat(commentsStart, rawTextStartTags, rawTextEndTags, startTagsOpen, endTags, texts, interpolationStart)()
+const nodes = createRepeat(commentsStart, rawTextStartTags, rawTextEndTags, startTagsOpen, endTags, texts, blockOpenStart, blockCloseStart, interpolationStart)()
 const attrs = createRepeat(ws, attrName, interpolationStart)(startTagsSelfClose, startTagsClose)
 const attr = createRepeat(attrOperator, attrEmpty)()
 const attrValue = createRepeat(unquoted, singleQuotedStart, doubleQuotedStart, interpolationStart)()
 const singleQuotedAttrValue = createRepeat(interpolationStart, singleQuotedCharacters)(singleQuotedEnd)
 const doubleQuotedAttrValue = createRepeat(interpolationStart, doubleQuotedCharacters)(doubleQuotedEnd)
 const interpolation = createRepeat(interpolationCharacters, js_string1, js_string2, js_string3)(interpolationEnd)
+const blocks = createRepeat(blockCharacters, js_string1, js_string2, js_string3)(blockEnd)
 
 
 /// Path
@@ -178,6 +186,22 @@ const dispatch = (type, value) => {
     case "(doubleQuotedEnd)":
       path.value += '`'
       delete path.isTemplate
+      break
+
+    case "(blockOpenStart)":
+      createPath("blockOpenStart")
+      path.tagName = value.slice(1).trim()
+      path.value = ""
+      path.isWatch = true
+      break
+
+    case "(blockCharacters)":
+      path.value += value
+      break
+
+    case "(blockCloseStart)":
+      createPath("blockCloseStart")
+      path.tagName = value.slice(1).trim()
       break
 
     case "(interpolationStart)":

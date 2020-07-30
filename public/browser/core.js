@@ -26,12 +26,16 @@ const render = (createInstance, ...nodes) => (target) => {
 }
 
 const element = (tagName, ...nodes) => (target, ctx) => {
-  const el = document.createElement(tagName)
-  for (const node of nodes) node(el, ctx)
+  let el = document.createElement(tagName)
+  let destroyCallbacks = nodes.map(node => node(el, ctx)[1])
   target.appendChild(el)
-  return () => [
-    () => {},
-    () => {}
+
+  return [
+    noop,
+    () => {
+      destroyCallbacks = void destroyCallbacks.forEach(callback => callback())
+      el = void el.remove()
+    }
   ]
 }
 
@@ -39,36 +43,67 @@ const attr = (nodeName, nodeValue = '') => (el) => {
   el.setAttribute(nodeName, nodeValue)
   return [
     (nodeValue) => el.setAttribute(nodeName, nodeValue),
-    () => {}
+    () => el = null
   ]
 }
 
 const text = (data = '') => (el) => {
-  const textNode = document.createTextNode(data)
+  let textNode = document.createTextNode(data)
   el.appendChild(textNode)
   return [
-    (data) => textNode.nodeValue = data
+    (data) => textNode.nodeValue = data,
+    () => textNode = void textNode.remove()
   ]
 }
 
-const watch = (callback, index, mask) => (el, ctx) => {
-  const [updateCallback] = callback(el, ctx)
-  const binding = [undefined, updateCallback, ctx[index], mask]
+const watch = (index, mask) => (callback) => (el, ctx) => {
+  let [updateCallback, destroyCallback] = callback(el, ctx)
+  let binding = [undefined, updateCallback, ctx[index], mask]
   bindings.push(binding)
   update(binding, mask)
+
+  return [
+    updateCallback,
+
+    () => {
+      binding.length = 0
+      bindings = bindings.filter(b => binding !== b)
+      destroyCallback()
+    }
+  ]
 }
 
+
 const on = (type, index) => (el, ctx) => {
-  const listener = ctx[index]()
+  let listener = ctx[index]()
   el.addEventListener(type, listener)
   return [
     noop,
-    () => el.removeEventListener(type, listener)
+    () => {
+      el.removeEventListener(type, listener)
+      listener = null
+    }
   ]
 }
 
-const classList = (className) => (el) => {
+const classList = (className) => (el) => [
+  (flag) => el.classList.toggle(className, flag),
+  () => el = null
+]
+
+const $if = (mask, ...nodes) => (el, ctx) => {
+  let destroyCallbacks = []
+
   return [
-    (flag) => el.classList.toggle(className, !!flag)
+    (flag) => {
+      if (flag ^ mask) {
+        destroyCallbacks = nodes.map(node => node(el, ctx)[1])
+      } else {
+        destroyCallbacks.forEach(callback => callback())
+        destroyCallbacks = null
+      }
+    },
+
+    () => destroyCallbacks = null
   ]
 }

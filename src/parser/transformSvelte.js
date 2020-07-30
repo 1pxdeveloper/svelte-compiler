@@ -3,9 +3,15 @@ import {transformReactive} from "./babel/reactive.js"
 import {analyzeScript, transformScript} from "./babel/scriptTag.js"
 import {parseSvelte} from "./parseSvelte.js"
 import {initReactive, setReactive} from "./table/reactives.js"
+import {clearIndentifiers} from "./table/identifiers"
 
 
 const quote = (str) => `'${String(str).replace(/\n/g, "\\n").replace(/'/g, "\\x27")}'`
+
+const generateWatch = (source, mutableTable) => {
+  const {index, identifiers_mask} = transformReactive(source, mutableTable)
+  return `, watch(${index}, ${identifiers_mask})`
+}
 
 
 export function transform(paths) {
@@ -26,6 +32,8 @@ export function transform(paths) {
   console.log("------------------- mutableTable ---------------------")
   console.table(mutableTable)
 
+  let ifCode
+
   let codes = paths.map(({type, tagName, name, value, textContent, isWatch}) => {
     switch (type) {
       case "rawTextElement": {
@@ -44,19 +52,23 @@ export function transform(paths) {
       case "attr": {
         const [prefix, name2] = name.split(":", 2)
 
-        const source = value.charAt(0) === "{" ? value.slice(1, -1) : value
-        const {code, index, identifiers_mask} = transformReactive(source, mutableTable)
+        if (!isWatch) {
+          return `, attr(${quote(name)}, ${quote(value)})`
+        }
+
+        const source = value.slice(1, -1)
 
         if (!name2) {
-          return `, watch(attr('${name}'), ${index}, ${identifiers_mask})`
+          return generateWatch(source, mutableTable) + `(attr(${quote(name)}))`
         }
 
         if (prefix === "on") {
+          const {code, index, identifiers_mask} = transformReactive(source, mutableTable)
           return `, on('${name2}', ${index})`
         }
 
         if (prefix === "class") {
-          return `, watch(classList('${name2}'), ${index}, ${identifiers_mask})`
+          return generateWatch(source, mutableTable) + `(classList(${quote(name2)}))`
         }
 
         throw new TypeError('not defined! ' + prefix, name2, name)
@@ -65,20 +77,40 @@ export function transform(paths) {
       case "text": {
         if (isWatch) {
           const source = value.slice(1, -1).trim()
-          const {code, index, identifiers_mask} = transformReactive(source, mutableTable)
-          return `, watch(text(), ${index}, ${identifiers_mask})`
+          return generateWatch(source, mutableTable) + `(text())`
         }
+
         return `, text(${quote(textContent)})`
       }
 
-      case "identifier_block":
-      case "blocks": {
-        const source = path.code.slice(1, -1).trim()
-        const {code, index, identifiers_mask} = transformReactive(source, mutableTable)
+      case "blockOpenStart": {
+        tagName = tagName.replace(/\s+/g, " ").trim()
 
-        return `, watch(text(), ${index}, ${identifiers_mask})`
+        switch (tagName) {
+          case "#if": {
+            ifCode = generateWatch(`!!(${value})`, mutableTable)
+            return ifCode + `($if(0`
+          }
+
+          case ":else if": {
+            return '))' + ifCode + `($if(1`
+          }
+
+          case ":else": {
+            return '))' + ifCode + `($if(1`
+          }
+        }
+
+        throw new TypeError('not supported! ' + tagName)
+      }
+
+      case "blockCloseStart": {
+        ifCode = null
+        return `))`
       }
     }
+
+    return ''
   }).join("")
 
 
@@ -87,6 +119,7 @@ export function transform(paths) {
 
   console.log('----- reactive ----- ')
   console.table(reactive)
+
 
   header += transformScript(scriptContent, mutableTable, reactive, identifiers).code
 
