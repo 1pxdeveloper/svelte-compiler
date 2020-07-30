@@ -91,17 +91,13 @@ const classList = (className) => (el) => [
   () => el = null
 ]
 
-const $if = (mask, ...nodes) => (el, ctx) => {
+const $if = (...nodes) => (...elseNodes) => (el, ctx) => {
   let destroyCallbacks = []
 
   return [
     (flag) => {
-      if (flag ^ mask) {
-        destroyCallbacks = nodes.map(node => node(el, ctx)[1])
-      } else {
-        destroyCallbacks.forEach(callback => callback())
-        destroyCallbacks = null
-      }
+      destroyCallbacks.forEach(callback => callback())
+      destroyCallbacks = (flag ? nodes : elseNodes).map(node => node(el, ctx)[1])
     },
 
     () => destroyCallbacks = null

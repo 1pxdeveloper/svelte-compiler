@@ -10,7 +10,7 @@ const quote = (str) => `'${String(str).replace(/\n/g, "\\n").replace(/'/g, "\\x2
 
 const generateWatch = (source, mutableTable) => {
   const {index, identifiers_mask} = transformReactive(source, mutableTable)
-  return `, watch(${index}, ${identifiers_mask})`
+  return `watch(${index}, ${identifiers_mask})`
 }
 
 
@@ -32,7 +32,8 @@ export function transform(paths) {
   console.log("------------------- mutableTable ---------------------")
   console.table(mutableTable)
 
-  let ifCode
+  let scopeCount = 0
+  let elseIf = false
 
   let codes = paths.map(({type, tagName, name, value, textContent, isWatch}) => {
     switch (type) {
@@ -42,10 +43,12 @@ export function transform(paths) {
       }
 
       case "elementOpen": {
-        return `,\nelement('${tagName}'`
+        scopeCount++
+        return `\nelement('${tagName}'`
       }
 
       case "elementClose": {
+        scopeCount--
         return `)`
       }
 
@@ -53,7 +56,7 @@ export function transform(paths) {
         const [prefix, name2] = name.split(":", 2)
 
         if (!isWatch) {
-          return `, attr(${quote(name)}, ${quote(value)})`
+          return `attr(${quote(name)}, ${quote(value)})`
         }
 
         const source = value.slice(1, -1)
@@ -64,7 +67,7 @@ export function transform(paths) {
 
         if (prefix === "on") {
           const {code, index, identifiers_mask} = transformReactive(source, mutableTable)
-          return `, on('${name2}', ${index})`
+          return `on('${name2}', ${index})`
         }
 
         if (prefix === "class") {
@@ -74,13 +77,17 @@ export function transform(paths) {
         throw new TypeError('not defined! ' + prefix, name2, name)
       }
 
+      case "ws": {
+        return scopeCount === 0 ? '' : `text(${quote(textContent)})`
+      }
+
       case "text": {
         if (isWatch) {
           const source = value.slice(1, -1).trim()
           return generateWatch(source, mutableTable) + `(text())`
         }
 
-        return `, text(${quote(textContent)})`
+        return `text(${quote(textContent)})`
       }
 
       case "blockOpenStart": {
@@ -88,16 +95,17 @@ export function transform(paths) {
 
         switch (tagName) {
           case "#if": {
-            ifCode = generateWatch(`!!(${value})`, mutableTable)
-            return ifCode + `($if(0`
+            elseIf = 2
+            return generateWatch(`!!(${value})`, mutableTable) + `($if(`
           }
 
           case ":else if": {
-            return '))' + ifCode + `($if(1`
+            elseIf += 3
+            return ')(' + generateWatch(`!!(${value})`, mutableTable) + `($if(`
           }
 
           case ":else": {
-            return '))' + ifCode + `($if(1`
+            return ')('
           }
         }
 
@@ -105,14 +113,21 @@ export function transform(paths) {
       }
 
       case "blockCloseStart": {
-        ifCode = null
-        return `))`
+        return Array(elseIf).join(')')
       }
     }
 
     return ''
-  }).join("")
+  })
 
+
+  codes = codes.filter(a => a)
+
+  console.table(codes)
+
+  codes = codes
+    .map((a, index, A) => (a.startsWith(")") || (A[index - 1] && A[index - 1].endsWith("(")) ? a : ',' + a))
+    .join("")
 
   console.log('----- identifiers ----- ')
   console.table(identifiers)

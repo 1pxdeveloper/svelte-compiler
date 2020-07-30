@@ -34,7 +34,7 @@ const createRepeat = (...args) => (...until) => () => {
 
 
 /// common
-const ws = ["(ws)", /(\s+)/, null, true]
+const ws = ["(ws)", /(\s+)/]
 
 
 /// root
@@ -97,7 +97,7 @@ const js_string3 = ["(interpolationCharacters)", new RegExp('(' + re_js_string3.
 
 
 const parse = () => {
-  while (source) nodes()
+  while (source) root()
 }
 
 const comments = () => {
@@ -121,7 +121,7 @@ const rawTextElement = () => {
   source = source.slice(lastIndex)
 }
 
-const nodes = createRepeat(commentsStart, rawTextStartTags, rawTextEndTags, startTagsOpen, endTags, texts, blockOpenStart, blockCloseStart, interpolationStart)()
+const root = createRepeat(commentsStart, rawTextStartTags, rawTextEndTags, startTagsOpen, endTags, ws, texts, blockOpenStart, blockCloseStart, interpolationStart)()
 const attrs = createRepeat(ws, attrName, interpolationStart)(startTagsSelfClose, startTagsClose)
 const attr = createRepeat(attrOperator, attrEmpty)()
 const attrValue = createRepeat(unquoted, singleQuotedStart, doubleQuotedStart, interpolationStart)()
@@ -234,6 +234,11 @@ const dispatch = (type, value) => {
     case "(endTags)":
       createPath("elementClose")
       path.tagName = value.slice(2, -1).trim()
+      break
+
+    case "(ws)":
+      createPath("ws")
+      path.textContent = value
       break
 
     case "(texts)":
