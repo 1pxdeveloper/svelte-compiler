@@ -95,17 +95,15 @@ export function transform(paths) {
 
         switch (tagName) {
           case "#if": {
-            elseIf = 2
-            return generateWatch(`!!(${value})`, mutableTable) + `($if(`
+            return `\nIf(` + generateWatch(`!!(${value})`, mutableTable) + ', fragment('
           }
 
           case ":else if": {
-            elseIf += 3
-            return ')(' + generateWatch(`!!(${value})`, mutableTable) + `($if(`
+            return '),\n' + generateWatch(`!!(${value})`, mutableTable) + ', fragment('
           }
 
           case ":else": {
-            return ')('
+            return '),0,fragment('
           }
         }
 
@@ -113,7 +111,7 @@ export function transform(paths) {
       }
 
       case "blockCloseStart": {
-        return Array(elseIf).join(')')
+        return '))'
       }
     }
 

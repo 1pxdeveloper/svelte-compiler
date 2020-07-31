@@ -17,6 +17,24 @@ const update = (binding, dirty) => {
 }
 
 
+/// @TODO: 변수가 32개 넘어가면 mask 복수개가 필요함.
+const watch = (index, mask) => (callback) => (el, ctx) => {
+  let [updateCallback, destroyCallback] = callback(el, ctx)
+  let binding = [undefined, updateCallback, ctx[index], mask]
+  bindings.push(binding)
+  update(binding, mask)
+
+  return [
+    noop,
+    () => {
+      binding.length = 0
+      bindings = bindings.filter(b => b.length)
+      destroyCallback()
+    }
+  ]
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const noop = () => {}
 
@@ -25,15 +43,23 @@ const render = (createInstance, ...nodes) => (target) => {
   for (const node of nodes) node(target, ctx)
 }
 
+const fragment = (...nodes) => (el, ctx) => {
+  let destroyCallbacks = nodes.map(node => node(el, ctx)[1])
+  return [
+    noop,
+    () => destroyCallbacks = void destroyCallbacks.forEach(callback => callback())
+  ]
+}
+
 const element = (tagName, ...nodes) => (target, ctx) => {
   let el = document.createElement(tagName)
-  let destroyCallbacks = nodes.map(node => node(el, ctx)[1])
+  let destroyCallback = fragment(...nodes)(el, ctx)[1]
   target.appendChild(el)
 
   return [
     noop,
     () => {
-      destroyCallbacks = void destroyCallbacks.forEach(callback => callback())
+      destroyCallback = void destroyCallback()
       el = void el.remove()
     }
   ]
@@ -56,33 +82,13 @@ const text = (data = '') => (el) => {
   ]
 }
 
-const watch = (index, mask) => (callback) => (el, ctx) => {
-  let [updateCallback, destroyCallback] = callback(el, ctx)
-  let binding = [undefined, updateCallback, ctx[index], mask]
-  bindings.push(binding)
-  update(binding, mask)
-
-  return [
-    updateCallback,
-
-    () => {
-      binding.length = 0
-      bindings = bindings.filter(b => binding !== b)
-      destroyCallback()
-    }
-  ]
-}
-
 
 const on = (type, index) => (el, ctx) => {
   let listener = ctx[index]()
   el.addEventListener(type, listener)
   return [
     noop,
-    () => {
-      el.removeEventListener(type, listener)
-      listener = null
-    }
+    () => listener = void el.removeEventListener(type, listener)
   ]
 }
 
@@ -91,15 +97,31 @@ const classList = (className) => (el) => [
   () => el = null
 ]
 
-const $if = (...nodes) => (...elseNodes) => (el, ctx) => {
-  let destroyCallbacks = []
+const If = (...conditions) => (el, ctx) => {
+  let fragments = conditions.filter((a, index) => index % 2)
+  let watchers = conditions.filter((w, index) => index % 2 === 0 && w)
+
+  console.log("watchers", watchers)
+
+  let conds = [...new Array(watchers.length), true]
+  let cond = (index) => () => [value => conds[index] = value]
+  let watcher = conditions[0]
+  let destory2 = noop
+  watchers.forEach((watcher, index) => watcher(cond(index))(el, ctx))
+
+  watcher(() => [
+    () => {
+      console.log(conds)
+
+      destory2()
+      const f = fragments[conds.indexOf(true)]
+      destory2 = f(el, ctx)[1]
+    },
+    noop,
+  ])(el, ctx)
 
   return [
-    (flag) => {
-      destroyCallbacks.forEach(callback => callback())
-      destroyCallbacks = (flag ? nodes : elseNodes).map(node => node(el, ctx)[1])
-    },
-
-    () => destroyCallbacks = null
+    noop,
+    () => el = ctx = fragments = destory2 = conds = void destory2()
   ]
 }

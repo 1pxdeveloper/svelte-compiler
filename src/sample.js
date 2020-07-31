@@ -1,6 +1,6 @@
 function createInstance(invalidate) {
   let name = 100
-  let x = 5
+  let x = 0
   let y = 7
   let test = false
 
@@ -17,11 +17,22 @@ function createInstance(invalidate) {
     y = 0
     test = !test
   }
-  return [() => x, () => !!(x % 2), () = a > !!(x > 5)]
+  return [() => x, () => !!(x % 2), () => !!(x > 3)]
 }
 
 render(createInstance,
-  element('div', text('x: '), watch(0, 1)(text())), watch(1, 1)($if(
-    element('h1', text('sdklfjasklfdjasdf')))(watch(2, 1)($if(
-    element('h2', text('else if!!')))(
-     element('h2', text('else!!')))))))(document.body)
+  element('div', text('x: '), watch(0, 1)(text())),
+
+  If(
+    watch(1, 1), fragment(
+      element('h1', text('sdklfjasklfdjasdf'))
+    ),
+
+    watch(2, 1), fragment(
+      element('h2', text('else if!!'))),
+
+    fragment(
+      element('h2', text('else!!')))
+  )
+
+)(document.body)
