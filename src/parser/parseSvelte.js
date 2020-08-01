@@ -198,7 +198,7 @@ const dispatch = (type, value) => {
       break
 
     case "(logicBlockOpenStart)":
-      createPath("logicBlockOpenStart")
+      createPath("{logicBlockOpenStart}")
       path.tagName = value.slice(1).trim()
       path.value = ""
       path.isWatch = true

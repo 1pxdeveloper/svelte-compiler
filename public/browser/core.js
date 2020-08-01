@@ -50,7 +50,7 @@ const fragment = (...nodes) => (el, ctx) => {
   let destroyCallbacks = nodes.map(node => node(el, ctx)[1])
   return [
     noop,
-    () => destroyCallbacks = void destroyCallbacks.forEach(callback => callback())
+    () => destroyCallbacks = void (destroyCallbacks && destroyCallbacks.forEach(callback => callback()))
   ]
 }
 
@@ -129,18 +129,21 @@ const If = (...conditions) => (el, ctx) => {
   ]
 }
 
-const each = (watcher, code, frag) => (el, ctx) => {
+const each = (scopeId, watcher, code, frag) => (el, ctx) => {
 
   let callback = (el, ctx) => {
     console.group("each/callback")
     console.log("@@@@@@@@@@@@@@@@@@@", el, ctx)
     console.groupEnd()
 
+    let destroyCallbacks = []
+
     return [
       (data) => {
+        for (const destroyCallback of destroyCallbacks) destroyCallback()
+
         for (let i = 0; i < data.length; i++) {
-          // let row = data[i]
-          frag(el, ctx)
+          destroyCallbacks.push(frag(el, ctx[scopeId](data[i], i))[1])
         }
 
         console.group("each/update")
@@ -154,3 +157,4 @@ const each = (watcher, code, frag) => (el, ctx) => {
   return watcher(callback)(el, ctx)
 }
 
+window.i = "#I#"

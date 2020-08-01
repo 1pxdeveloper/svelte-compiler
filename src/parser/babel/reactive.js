@@ -14,22 +14,23 @@ function makeReactive({types: t}) {
 
   return {
     visitor: {
-      Program(path) {
-        if (path.shouldSkip) return
+      Program: {
+        exit(path) {
+          identifiers = Object.keys(path.scope.globals)
+          console.log("identifiers", identifiers)
+          console.log("$mutableTable", $mutableTable)
 
-        identifiers = Object.keys(path.scope.globals)
-        identifiers_mask = identifiers.map(key => setIndentifiers(key, $mutableTable)).reduce((a, b) => a | b, 0)
+          identifiers_mask = identifiers.map(key => setIndentifiers(key, $mutableTable)).reduce((a, b) => a | b, 0)
 
-        console.log("identifiers, identifiers_mask", identifiers, identifiers_mask, ({...path}))
+          console.log("identifiers, identifiers_mask", identifiers, identifiers_mask, ({...path}))
 
-        path.shouldSkip = true
+          if (path.node.body) {
+            path.node.body = [t.arrowFunctionExpression([], path.node.body[0].expression)]
+          }
 
-        if (path.node.body) {
-          path.node.body = [t.arrowFunctionExpression([], path.node.body[0].expression)]
-        }
-
-        console.warn("Program", path)
-      },
+          console.warn("Program", path)
+        },
+      }
     }
   }
 }

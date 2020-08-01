@@ -2,7 +2,7 @@ import {initIndentifiers, setIndentifiers} from "./table/identifiers.js"
 import {transformReactive} from "./babel/reactive.js"
 import {analyzeScript, transformScript} from "./babel/scriptTag.js"
 import {parseSvelte} from "./parseSvelte.js"
-import {initReactive, setReactive} from "./table/reactives.js"
+import {enterScope, exitScope, initReactive, setReactive} from "./table/reactives.js"
 import {clearIndentifiers} from "./table/identifiers"
 
 
@@ -35,7 +35,6 @@ export function transform(paths) {
   console.table(mutableTable)
 
   let scopeCount = 0
-  let elseIf = false
 
   let codes = paths.map(({type, tagName, name, value, textContent, isWatch}) => {
     switch (type) {
@@ -68,7 +67,7 @@ export function transform(paths) {
         }
 
         if (prefix === "on") {
-          const {index} = transformReactive(source)
+          const {index} = transformReactive(source, mutableTable)
           return `on('${name2}', ${index})`
         }
 
@@ -112,13 +111,18 @@ export function transform(paths) {
         throw new TypeError('not supported! ' + tagName)
       }
 
-      case "logicBlockCloseStart": {
-        return '))'
-      }
-
       /// {#each ... as row, index (key)}
       case "each": {
-        return '\neach(' + generateWatch(name) + ',' + quote(value) + ', fragment('
+        const w = generateWatch(name)
+        const scopeId = enterScope(value)
+        return `\neach(${scopeId},` + w + ',' + quote(value) + ', fragment('
+      }
+
+      case "logicBlockCloseStart": {
+        if (tagName === "/each") {
+          exitScope()
+        }
+        return '))'
       }
     }
 

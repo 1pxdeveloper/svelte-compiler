@@ -126,6 +126,15 @@ function makeInvalidate({types: t}) {
           //   path.pushContainer("body", makeInvalidateExpression(t, key))
           // })
 
+          const test = (code) => {
+            if (typeof code === "string") return code
+            if (Array.isArray(code)) {
+              const [params, array] = code
+              return params + '=> [\n' + array.map(test).join(',\n') + ']'
+            }
+          }
+
+
           path.shouldSkip = true
           path.replaceWith(
             t.program([
@@ -135,7 +144,7 @@ function makeInvalidate({types: t}) {
                 [t.identifier(INVALIDATE_FUNC_NAME)],
                 t.blockStatement([
                   ...path.node.body.filter(node => !t.isImportDeclaration(node)),
-                  t.returnStatement(t.identifier("[" + $reactives.join(',') + "]"))
+                  t.returnStatement(t.identifier("[\n" + $reactives.map(test).join(',\n') + "]"))
                 ]))
             ])
           )
