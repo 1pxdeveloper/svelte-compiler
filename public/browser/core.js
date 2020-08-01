@@ -129,7 +129,7 @@ const If = (...conditions) => (el, ctx) => {
   ]
 }
 
-const each = (scopeId, watcher, code, frag) => (el, ctx) => {
+const each = (scopeId, watcher, frag) => (el, ctx) => {
 
   let callback = (el, ctx) => {
     console.group("each/callback")
@@ -156,5 +156,3 @@ const each = (scopeId, watcher, code, frag) => (el, ctx) => {
 
   return watcher(callback)(el, ctx)
 }
-
-window.i = "#I#"

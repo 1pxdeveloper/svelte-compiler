@@ -115,7 +115,7 @@ export function transform(paths) {
       case "each": {
         const w = generateWatch(name)
         const scopeId = enterScope(value)
-        return `\neach(${scopeId},` + w + ',' + quote(value) + ', fragment('
+        return `\neach(${scopeId}, ` + w + ', fragment('
       }
 
       case "logicBlockCloseStart": {

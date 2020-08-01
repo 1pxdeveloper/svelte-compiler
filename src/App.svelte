@@ -73,4 +73,8 @@ body {
 .flex {
   flex: 1;
 }
+
+textarea {
+  tab-size: 2;
+}
 </style>
