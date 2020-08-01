@@ -37,9 +37,9 @@ function makeReactive({types: t}) {
 babel.registerPlugin('makeReactive', makeReactive)
 
 export function transformReactive(source, mutableTable) {
-  identifiers_mask = 0
-  identifiers = []
   $mutableTable = mutableTable
+  identifiers = []
+  identifiers_mask = 0
 
   const output = babel.transform(source, {
     ast: false,

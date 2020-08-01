@@ -12,12 +12,12 @@ const createRepeat = (...args) => (...until) => () => {
     throw new Error("max circular")
   }
 
-  const concated = args.concat(until)
+  const concated = until.concat(args)
   const re = new RegExp("^(?:" + concated.map(arg => arg[1].source).join("|") + ")", "u")
 
   while (source) {
     const m = re.exec(source)
-    if (!m) {throw new Error("invalid. " + source + " " + re)}
+    if (!m) {throw new Error("invalid. \n\n" + source + '\n\n' + args)}
     source = RegExp.rightContext
 
     const index = m.slice(1).findIndex(arg => arg !== undefined)
@@ -27,7 +27,7 @@ const createRepeat = (...args) => (...until) => () => {
     !isSkip && dispatch(type, m[0])
 
     next && next()()
-    if (index >= args.length) break
+    if (index < until.length) break
     if (until.length === 0) break
   }
 }
@@ -73,16 +73,23 @@ const doubleQuotedEnd = ["(doubleQuotedEnd)", /(")/u]
 
 
 /// blocks
-const blockOpenStart = ["(blockOpenStart)", /(\{\s*(?:(?::else\s+if\s+)|(?:[#@:][^\s}]+)))/u, () => blocks]
-const blockCloseStart = ["(blockCloseStart)", /(\{\s*[/][^\s}]+)/u, () => blocks]
+const logicBlockOpenStart = ["(logicBlockOpenStart)", /(\{\s*(?:(?::else\s+if\s+)|(?:[#@:][^\s}]+)))/u, () => blocks]
+const logicBlockCloseStart = ["(logicBlockCloseStart)", /(\{\s*[/][^\s}]+)/u, () => blocks]
+const logicBlockCharacters = ["(logicBlockCharacters)", /([^"'`{}]+)/u]
+const logicBlockEnd = ["(logicBlockEnd)", /(\})/u]
+
+
+/// blocks
+const eachBlockOpenStart = ["(eachBlockOpenStart)", /(\{\s*#each\s+)/u, () => eachBlocks]
+const eachBlockCharacters = ["(eachBlockCharacters)", /([^\s"'`{}]+)/u]
+const eachBlockCharactersWs = ["(eachBlockCharacters)", /(\s+)/u]
+const eachAs = ["(eachBlockAs)", /(\s+as\s+)/u, () => eachRest]
+
+
+/// block
+const blockStart = ["(blockStart)", /(\{)/u, () => block]
 const blockCharacters = ["(blockCharacters)", /([^"'`{}]+)/u]
 const blockEnd = ["(blockEnd)", /(\})/u]
-
-
-/// interpolation
-const interpolationStart = ["(interpolationStart)", /(\{)/u, () => interpolation]
-const interpolationCharacters = ["(interpolationCharacters)", /([^"'`{}]+)/u]
-const interpolationEnd = ["(interpolationEnd)", /(\})/u]
 
 
 /// js
@@ -91,9 +98,9 @@ const re_js_string1 = createEscapeOneLineRegexp("'")
 const re_js_string2 = createEscapeOneLineRegexp('"')
 const re_js_string3 = createEscapeOneLineRegexp("`")
 
-const js_string1 = ["(interpolationCharacters)", new RegExp('(' + re_js_string1.source + ')', 'u')]
-const js_string2 = ["(interpolationCharacters)", new RegExp('(' + re_js_string2.source + ')', 'u')]
-const js_string3 = ["(interpolationCharacters)", new RegExp('(' + re_js_string3.source + ')', 'u')]
+const js_string1 = ["(blockCharacters)", new RegExp('(' + re_js_string1.source + ')', 'u')]
+const js_string2 = ["(blockCharacters)", new RegExp('(' + re_js_string2.source + ')', 'u')]
+const js_string3 = ["(blockCharacters)", new RegExp('(' + re_js_string3.source + ')', 'u')]
 
 
 const parse = () => {
@@ -121,14 +128,16 @@ const rawTextElement = () => {
   source = source.slice(lastIndex)
 }
 
-const root = createRepeat(commentsStart, rawTextStartTags, rawTextEndTags, startTagsOpen, endTags, ws, texts, blockOpenStart, blockCloseStart, interpolationStart)()
-const attrs = createRepeat(ws, attrName, interpolationStart)(startTagsSelfClose, startTagsClose)
+const root = createRepeat(commentsStart, rawTextStartTags, rawTextEndTags, startTagsOpen, endTags, ws, texts, eachBlockOpenStart, logicBlockOpenStart, logicBlockCloseStart, blockStart)()
+const attrs = createRepeat(ws, attrName, blockStart)(startTagsSelfClose, startTagsClose)
 const attr = createRepeat(attrOperator, attrEmpty)()
-const attrValue = createRepeat(unquoted, singleQuotedStart, doubleQuotedStart, interpolationStart)()
-const singleQuotedAttrValue = createRepeat(interpolationStart, singleQuotedCharacters)(singleQuotedEnd)
-const doubleQuotedAttrValue = createRepeat(interpolationStart, doubleQuotedCharacters)(doubleQuotedEnd)
-const interpolation = createRepeat(interpolationCharacters, js_string1, js_string2, js_string3)(interpolationEnd)
-const blocks = createRepeat(blockCharacters, js_string1, js_string2, js_string3)(blockEnd)
+const attrValue = createRepeat(unquoted, singleQuotedStart, doubleQuotedStart, blockStart)()
+const singleQuotedAttrValue = createRepeat(blockStart, singleQuotedCharacters)(singleQuotedEnd)
+const doubleQuotedAttrValue = createRepeat(blockStart, doubleQuotedCharacters)(doubleQuotedEnd)
+const block = createRepeat(blockCharacters, js_string1, js_string2, js_string3)(blockEnd)
+const blocks = createRepeat(logicBlockCharacters, js_string1, js_string2, js_string3, blockStart)(logicBlockEnd)
+const eachBlocks = createRepeat(eachBlockCharacters, eachBlockCharactersWs, js_string1, js_string2, js_string3, blockStart)(eachAs, logicBlockEnd)
+const eachRest = createRepeat(eachBlockCharacters, eachBlockCharactersWs, js_string1, js_string2, js_string3, blockStart)(logicBlockEnd)
 
 
 /// Path
@@ -188,10 +197,59 @@ const dispatch = (type, value) => {
       delete path.isTemplate
       break
 
-    case "(blockOpenStart)":
-      createPath("blockOpenStart")
+    case "(logicBlockOpenStart)":
+      createPath("logicBlockOpenStart")
       path.tagName = value.slice(1).trim()
       path.value = ""
+      path.isWatch = true
+      break
+
+    case "(logicBlockCharacters)":
+      path.value += value
+      break
+
+    case "(logicBlockCloseStart)":
+      createPath("logicBlockCloseStart")
+      path.tagName = value.slice(1).trim()
+      break
+
+
+    case "(eachBlockOpenStart)":
+      createPath("each")
+      path.tagName = value.slice(1).trim()
+      path.value = ""
+      break
+
+    case "(eachBlockAs)":
+      path.name = path.value
+      path.value = ""
+      break
+
+    case "(eachBlockCharacters)":
+      path.value += value
+      break
+
+
+    case "(blockStart)":
+      if (path.isTemplate) {
+        path.value += '${'
+        break
+      }
+
+      if (path.type === "attr") {
+        path.value += '{'
+        path.isWatch = true
+        break
+      }
+
+      if (path.type === "each") {
+        path.value += '{'
+        break
+      }
+
+      // text
+      createPath("text")
+      path.value = "{"
       path.isWatch = true
       break
 
@@ -199,31 +257,7 @@ const dispatch = (type, value) => {
       path.value += value
       break
 
-    case "(blockCloseStart)":
-      createPath("blockCloseStart")
-      path.tagName = value.slice(1).trim()
-      break
-
-    case "(interpolationStart)":
-      if (path.type !== "attr") {
-        createPath("text")
-        path.value = "{"
-        path.isWatch = true
-        break
-      }
-      if (path.isTemplate) {
-        path.value += '${'
-        break
-      }
-      path.value += '{'
-      path.isWatch = true
-      break
-
-    case "(interpolationCharacters)":
-      path.value += value
-      break
-
-    case "(interpolationEnd)":
+    case "(blockEnd)":
       path.value += '}'
       break
 

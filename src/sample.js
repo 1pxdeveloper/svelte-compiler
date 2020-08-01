@@ -1,38 +1,26 @@
 function createInstance(invalidate) {
-  let name = 100
+  let cats = [{id: 'J---aiyznGQ', name: 'Keyboard Cat'}, {id: 'z_AbfPXTKms', name: 'Maru'}, {id: 'OUtn3pvWmpg', name: 'Henri The Existential Cat'}]
+
   let x = 0
-  let y = 7
-  let test = false
 
-  setInterval(() => {
+  x = 10
 
-    name++
-    invalidate(1, x++)
-    y--
-  }, 1000)
+  return [
+    () => x,
+    () => cats,
 
-  const reset = () => {
-    name = 0
-    invalidate(1, x = 0)
-    y = 0
-    test = !test
-  }
-  return [() => x, () => !!(x % 2), () => !!(x > 3)]
+    ({id, name}, i) => [
+      () => i + 1,
+      () => name
+    ]
+  ]
 }
 
 render(createInstance,
-  element('div', text('x: '), watch(0, 1)(text())),
-
-  If(
-    watch(1, 1), fragment(
-      element('h1', text('sdklfjasklfdjasdf'))
-    ),
-
-    watch(2, 1), fragment(
-      element('h2', text('else if!!'))),
-
-    fragment(
-      element('h2', text('else!!')))
-  )
-
-)(document.body)
+  element('h1', text('The Famous Cats of YouTube')),
+  element('div', text('x: '), watch(0, 0)(text())),
+  element('div', watch(1, 0)(text())),
+  element('ul', text('\n	'),
+    each(watch(1, 0), '{ id, name }, i', fragment(text('\n		'),
+      element('li',
+        element('a', text(' '), attr('target', '`_blank`'), text(' '), attr('href', '`https://www.youtube.com/watch?v=${id}`'), text('\n			'), watch(2, 0)(text()), text(': '), watch(3, 0)(text()), text('\n		'))), text('\n	'))), text('\n')))(document.body)

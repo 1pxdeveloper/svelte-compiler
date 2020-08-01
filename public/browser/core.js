@@ -20,9 +20,12 @@ const update = (binding, dirty) => {
 /// @TODO: 변수가 32개 넘어가면 mask 복수개가 필요함.
 const watch = (index, mask) => (callback) => (el, ctx) => {
   let [updateCallback, destroyCallback] = callback(el, ctx)
-  let binding = [undefined, updateCallback, ctx[index], mask]
+  let dataCallback = ctx[index]
+  let value = dataCallback()
+  updateCallback(value)
+
+  let binding = [value, updateCallback, dataCallback, mask]
   bindings.push(binding)
-  update(binding, mask)
 
   return [
     noop,
@@ -125,3 +128,29 @@ const If = (...conditions) => (el, ctx) => {
     () => el = ctx = fragments = destory2 = conds = void destory2()
   ]
 }
+
+const each = (watcher, code, frag) => (el, ctx) => {
+
+  let callback = (el, ctx) => {
+    console.group("each/callback")
+    console.log("@@@@@@@@@@@@@@@@@@@", el, ctx)
+    console.groupEnd()
+
+    return [
+      (data) => {
+        for (let i = 0; i < data.length; i++) {
+          // let row = data[i]
+          frag(el, ctx)
+        }
+
+        console.group("each/update")
+        console.log("??????????????????????????????????", data)
+        console.groupEnd()
+      },
+      noop,
+    ]
+  }
+
+  return watcher(callback)(el, ctx)
+}
+

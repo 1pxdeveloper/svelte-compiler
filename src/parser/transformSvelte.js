@@ -8,7 +8,7 @@ import {clearIndentifiers} from "./table/identifiers"
 
 const quote = (str) => `'${String(str).replace(/\n/g, "\\n").replace(/'/g, "\\x27")}'`
 
-const generateWatch = (source, mutableTable) => {
+const createGenerateWatch = (mutableTable) => (source) => {
   const {index, identifiers_mask} = transformReactive(source, mutableTable)
   return `watch(${index}, ${identifiers_mask})`
 }
@@ -28,6 +28,8 @@ export function transform(paths) {
       analyzeScript(path.textContent, mutableTable)
     }
   })
+
+  const generateWatch = createGenerateWatch(mutableTable)
 
   console.log("------------------- mutableTable ---------------------")
   console.table(mutableTable)
@@ -62,16 +64,16 @@ export function transform(paths) {
         const source = value.slice(1, -1)
 
         if (!name2) {
-          return generateWatch(source, mutableTable) + `(attr(${quote(name)}))`
+          return generateWatch(source) + `(attr(${quote(name)}))`
         }
 
         if (prefix === "on") {
-          const {code, index, identifiers_mask} = transformReactive(source, mutableTable)
+          const {index} = transformReactive(source)
           return `on('${name2}', ${index})`
         }
 
         if (prefix === "class") {
-          return generateWatch(source, mutableTable) + `(classList(${quote(name2)}))`
+          return generateWatch(source) + `(classList(${quote(name2)}))`
         }
 
         throw new TypeError('not defined! ' + prefix, name2, name)
@@ -84,22 +86,22 @@ export function transform(paths) {
       case "text": {
         if (isWatch) {
           const source = value.slice(1, -1).trim()
-          return generateWatch(source, mutableTable) + `(text())`
+          return generateWatch(source) + `(text())`
         }
 
         return `text(${quote(textContent)})`
       }
 
-      case "blockOpenStart": {
+      case "logicBlockOpenStart": {
         tagName = tagName.replace(/\s+/g, " ").trim()
 
         switch (tagName) {
           case "#if": {
-            return `\nIf(` + generateWatch(`!!(${value})`, mutableTable) + ', fragment('
+            return `\nIf(` + generateWatch(`!!(${value})`) + ', fragment('
           }
 
           case ":else if": {
-            return '),\n' + generateWatch(`!!(${value})`, mutableTable) + ', fragment('
+            return '),\n' + generateWatch(`!!(${value})`) + ', fragment('
           }
 
           case ":else": {
@@ -110,8 +112,13 @@ export function transform(paths) {
         throw new TypeError('not supported! ' + tagName)
       }
 
-      case "blockCloseStart": {
+      case "logicBlockCloseStart": {
         return '))'
+      }
+
+      /// {#each ... as row, index (key)}
+      case "each": {
+        return '\neach(' + generateWatch(name) + ',' + quote(value) + ', fragment('
       }
     }
 

@@ -42,8 +42,8 @@ let x = {}
 
 
 <div class="hbox">
-  <textarea h=2 class="flex" cols="80" rows="40" bind:value={text} on:input={input}/>
-  <textarea class="flex" cols="80" rows="40" bind:value={code}></textarea>
+  <textarea h=2 class="flex" cols="80" rows="30" bind:value={text} on:input={input}/>
+  <textarea class="flex" cols="80" rows="30" bind:value={code}></textarea>
 </div>
 
 <iframe test="aksdfjsdf" {iframe} {...x} y={x + '2>0'} src="/run.html" bind:this={iframe} frameborder="0" width="100%" height="300px" on:load={apply}></iframe>

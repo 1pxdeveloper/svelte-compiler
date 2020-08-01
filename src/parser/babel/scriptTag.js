@@ -97,8 +97,6 @@ function insertInvalidate(t, path, ...nodes) {
 function makeInvalidate({types: t}) {
   window.t = t
 
-  console.warn("memo?? makeInvalidate")
-
   return {
     visitor: {
       UpdateExpression(path) {
