@@ -63,7 +63,7 @@ export function transform(paths) {
         const source = value.slice(1, -1)
 
         if (!name2) {
-          return generateWatch(source) + `(attr(${quote(name)}))`
+          return generateWatch(source) + `($attr(${quote(name)}))`
         }
 
         if (prefix === "on") {
@@ -85,7 +85,7 @@ export function transform(paths) {
       case "text": {
         if (isWatch) {
           const source = value.slice(1, -1).trim()
-          return generateWatch(source) + `(text())`
+          return generateWatch(source) + `($text)`
         }
 
         return `text(${quote(textContent)})`

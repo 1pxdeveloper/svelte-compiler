@@ -27,14 +27,11 @@ const watch = (index, mask) => (callback) => (el, ctx) => {
   let binding = [value, updateCallback, dataCallback, mask]
   bindings.push(binding)
 
-  return [
-    noop,
-    () => {
-      binding.length = 0
-      bindings = bindings.filter(b => b.length)
-      destroyCallback()
-    }
-  ]
+  return () => {
+    binding.length = 0
+    bindings = bindings.filter(b => b.length)
+    destroyCallback()
+  }
 }
 
 
@@ -47,37 +44,39 @@ const render = (createInstance, ...nodes) => (target) => {
 }
 
 const fragment = (...nodes) => (el, ctx) => {
-  let destroyCallbacks = nodes.map(node => node(el, ctx)[1])
-  return [
-    noop,
-    () => destroyCallbacks = void (destroyCallbacks && destroyCallbacks.forEach(callback => callback()))
-  ]
+  let destroyCallbacks = nodes.map(node => node(el, ctx))
+  return () => destroyCallbacks = void (destroyCallbacks && destroyCallbacks.forEach(callback => callback()))
 }
 
 const element = (tagName, ...nodes) => (target, ctx) => {
   let el = document.createElement(tagName)
-  let destroyCallback = fragment(...nodes)(el, ctx)[1]
+  let destroyCallback = fragment(...nodes)(el, ctx)
   target.appendChild(el)
 
-  return [
-    noop,
-    () => {
-      destroyCallback = void destroyCallback()
-      el = void el.remove()
-    }
-  ]
+  return () => {
+    destroyCallback = void destroyCallback()
+    el = void el.remove()
+  }
 }
 
 const attr = (nodeName, nodeValue = '') => (el) => {
   el.setAttribute(nodeName, nodeValue)
-  return [
-    (nodeValue) => el.setAttribute(nodeName, nodeValue),
-    () => el = null
-  ]
+  return noop
 }
+
+const $attr = (nodeName) => (el) => [
+  (nodeValue) => el.setAttribute(nodeName, nodeValue),
+  () => el = null
+]
 
 const text = (data = '') => (el) => {
   let textNode = document.createTextNode(data)
+  el.appendChild(textNode)
+  return () => textNode = void textNode.remove()
+}
+
+const $text = (el) => {
+  let textNode = document.createTextNode('')
   el.appendChild(textNode)
   return [
     (data) => textNode.nodeValue = data,
@@ -85,14 +84,10 @@ const text = (data = '') => (el) => {
   ]
 }
 
-
 const on = (type, index) => (el, ctx) => {
   let listener = ctx[index]()
   el.addEventListener(type, listener)
-  return [
-    noop,
-    () => listener = void el.removeEventListener(type, listener)
-  ]
+  return () => listener = void el.removeEventListener(type, listener)
 }
 
 const classList = (className) => (el) => [
@@ -112,27 +107,24 @@ const If = (...conditions) => (el, ctx) => {
   let destory2 = noop
   watchers.forEach((watcher, index) => watcher(cond(index))(el, ctx))
 
-  watcher(() => [
+  let $callback = () => [
     () => {
       console.log(conds)
-
       destory2()
       const f = fragments[conds.indexOf(true)]
-      destory2 = f(el, ctx)[1]
+      destory2 = f(el, ctx)
     },
-    noop,
-  ])(el, ctx)
-
-  return [
-    noop,
-    () => el = ctx = fragments = destory2 = conds = void destory2()
+    noop
   ]
+
+  watcher($callback)(el, ctx)
+  return () => el = ctx = fragments = destory2 = conds = void destory2()
 }
 
 const each = (scopeId, watcher, frag) => (el, ctx) => {
 
-  let callback = (el, ctx) => {
-    console.group("each/callback")
+  let $callback = (el, ctx) => {
+    console.group("each/$callback")
     console.log("@@@@@@@@@@@@@@@@@@@", el, ctx)
     console.groupEnd()
 
@@ -143,7 +135,7 @@ const each = (scopeId, watcher, frag) => (el, ctx) => {
         for (const destroyCallback of destroyCallbacks) destroyCallback()
 
         for (let i = 0; i < data.length; i++) {
-          destroyCallbacks.push(frag(el, ctx[scopeId](data[i], i))[1])
+          destroyCallbacks.push(frag(el, ctx[scopeId](data[i], i)))
         }
 
         console.group("each/update")
@@ -154,5 +146,5 @@ const each = (scopeId, watcher, frag) => (el, ctx) => {
     ]
   }
 
-  return watcher(callback)(el, ctx)
+  return watcher($callback)(el, ctx)
 }
