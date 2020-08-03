@@ -13,6 +13,10 @@ const createGenerateWatch = (mutableTable) => (source) => {
   return `watch(${index}, ${identifiers_mask})`
 }
 
+const createGenerateSetter = (mutableTable) => (source) => {
+  const {index, identifiers_mask} = transformReactive(source + '=value', mutableTable, ['value'])
+  return `setter(${index}, ${identifiers_mask})`
+}
 
 export function transform(paths) {
 
@@ -30,6 +34,7 @@ export function transform(paths) {
   })
 
   const generateWatch = createGenerateWatch(mutableTable)
+  const generateSetter = createGenerateSetter(mutableTable)
 
   console.log("------------------- mutableTable ---------------------")
   console.table(mutableTable)
@@ -72,7 +77,11 @@ export function transform(paths) {
         }
 
         if (prefix === "class") {
-          return generateWatch(source) + `(classList(${quote(name2)}))`
+          return generateWatch(source) + `($class(${quote(name2)}))`
+        }
+
+        if (prefix === "bind") {
+          return generateWatch(source) + '(' + generateSetter(source) + `($bind(${quote(name2)})))`
         }
 
         throw new TypeError('not defined! ' + prefix, name2, name)

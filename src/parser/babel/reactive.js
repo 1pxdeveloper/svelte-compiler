@@ -1,3 +1,14 @@
+/*
+setter / getter 를 만드는 babel plugin
+
+() => { ... }
+value => { .... } = value
+
+의 형태를 만들어 낸다.
+
+mutableTable에서 필요한 identifiers_mask를 생성하여 watch 함.
+
+ */
 import {setIndentifiers} from "../table/identifiers.js"
 import {setReactive} from "../table/reactives"
 
@@ -8,6 +19,7 @@ window.babel = babel
 let identifiers
 let identifiers_mask
 let $mutableTable
+let $set_args
 
 function makeReactive({types: t}) {
   window.t = t
@@ -17,18 +29,11 @@ function makeReactive({types: t}) {
       Program: {
         exit(path) {
           identifiers = Object.keys(path.scope.globals)
-          console.log("identifiers", identifiers)
-          console.log("$mutableTable", $mutableTable)
-
-          identifiers_mask = identifiers.map(key => setIndentifiers(key, $mutableTable)).reduce((a, b) => a | b, 0)
-
-          console.log("identifiers, identifiers_mask", identifiers, identifiers_mask, ({...path}))
+          identifiers_mask = identifiers.map(key => setIndentifiers(key, $set_args ? path.scope.globals : $mutableTable)).reduce((a, b) => a | b, 0)
 
           if (path.node.body) {
-            path.node.body = [t.arrowFunctionExpression([], path.node.body[0].expression)]
+            path.node.body = [t.arrowFunctionExpression($set_args.map(v => t.identifier(v)), path.node.body[0].expression)]
           }
-
-          console.warn("Program", path)
         },
       }
     }
@@ -37,8 +42,9 @@ function makeReactive({types: t}) {
 
 babel.registerPlugin('makeReactive', makeReactive)
 
-export function transformReactive(source, mutableTable) {
+export function transformReactive(source, mutableTable, set_args = []) {
   $mutableTable = mutableTable
+  $set_args = set_args
   identifiers = []
   identifiers_mask = 0
 

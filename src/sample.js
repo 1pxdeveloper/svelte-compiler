@@ -1,8 +1,12 @@
 function createInstance(invalidate) {
+  let name = ''
   return [
-()=>src,
-()=>`${name} dancing`];
+    () => name,
+    value => name = value,
+    () => `enter your name`,
+    () => name || 'stranger']
 }
 
-render(createInstance),text('\n\n'),text('\n'),
-element('img',watch(0, 0)($attr('src')),watch(1, 0)($attr('alt'))))(document.body)
+render(createInstance,
+  element('input', text(' '), watch(0, 1)(setter(1, 3)($bind('value'))), text(' '), watch(2, 0)($attr('placeholder'))),
+  element('p', text('Hello '), watch(3, 1)($text), text('!')))(document.body)

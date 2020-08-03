@@ -265,9 +265,8 @@ const dispatch = (phase, type, value) => {
 
     case "(blockStart)":
 
-      console.log(path)
-
-      if (path.type === "elementOpen") {
+      // @FIXME:
+      if (path.type === "elementOpen" && !path.isClosed) {
         createPath("attr")
         break
       }
@@ -304,6 +303,7 @@ const dispatch = (phase, type, value) => {
 
     case "(startTagsClose)":
       if (VOID_TAG_NAME.includes(lastTagName)) createPath("elementClose")
+      path.isClosed = true
       break
 
     case "(startTagsSelfClose)":

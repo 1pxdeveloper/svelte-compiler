@@ -35,6 +35,17 @@ const watch = (index, mask) => (callback) => (el, ctx) => {
 }
 
 
+/// @TODO: 변수가 32개 넘어가면 mask 복수개가 필요함.
+const setter = (index, mask) => (callback) => (el, ctx) => {
+  const set = (value) => {
+    ctx[index](value)
+    invalidate(mask)
+  }
+
+  return callback(set)(el, ctx)
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const noop = () => {}
 
@@ -90,7 +101,7 @@ const on = (type, index) => (el, ctx) => {
   return () => listener = void el.removeEventListener(type, listener)
 }
 
-const classList = (className) => (el) => [
+const $class = (className) => (el) => [
   (flag) => el.classList.toggle(className, flag),
   () => el = null
 ]
@@ -103,22 +114,18 @@ const If = (...conditions) => (el, ctx) => {
 
   let conds = [...new Array(watchers.length), true]
   let cond = (index) => () => [value => conds[index] = value]
-  let watcher = conditions[0]
-  let destory2 = noop
   watchers.forEach((watcher, index) => watcher(cond(index))(el, ctx))
 
-  let $callback = () => [
-    () => {
-      console.log(conds)
-      destory2()
-      const f = fragments[conds.indexOf(true)]
-      destory2 = f ? f(el, ctx) : noop
-    },
-    noop
-  ]
+  let destroyCallbacks = noop
 
-  watcher($callback)(el, ctx)
-  return () => el = ctx = fragments = destory2 = conds = void destory2()
+  return conditions[0]((el, ctx) => [
+    () => {
+      destroyCallbacks()
+      const f = fragments[conds.indexOf(true)]
+      destroyCallbacks = f ? f(el, ctx) : noop
+    },
+    () => fragments = conds = destroyCallbacks = void destroyCallbacks()
+  ])(el, ctx)
 }
 
 const each = (scopeId, watcher, frag) => (el, ctx) => {
@@ -147,4 +154,25 @@ const each = (scopeId, watcher, frag) => (el, ctx) => {
   }
 
   return watcher($callback)(el, ctx)
+}
+
+
+const toNumber = (a, n = +a) => n === n ? n : a
+
+const $bind = (prop) => (set) => (el) => {
+
+  if (prop === "value") {
+    const handler = () => set(toNumber(el.value))
+    el.addEventListener("input", handler)
+
+    return [
+      (value) => el.value = value,
+      () => el = void el.removeEventListener("input", handler)
+    ]
+  }
+
+  return [
+    (value) => el[prop] = value,
+    () => el = null
+  ]
 }

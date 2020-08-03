@@ -1,19 +1,16 @@
 <script>
-	let user = { loggedIn: false };
-
-	function toggle() {
-		user.loggedIn = !user.loggedIn;
-	}
+	let a = 1;
+	let b = 2;
 </script>
 
-{#if user.loggedIn}
-	<button on:click={toggle}>
-		Log out
-	</button>
-{/if}
+<label>
+	<input type=number bind:value={a} min=0 max=10>
+	<input type=range bind:value={a} min=0 max=10>
+</label>
 
-{#if !user.loggedIn}
-	<button on:click={toggle}>
-		Log in
-	</button>
-{/if}
+<label>
+	<input type=number bind:value={b} min=0 max=10>
+	<input type=range bind:value={b} min=0 max=10>
+</label>
+
+<p>{a} + {b} = {a + b}</p>
