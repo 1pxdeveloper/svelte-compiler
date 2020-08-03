@@ -5,7 +5,8 @@ let tokens = []
 let paths = []
 let path
 
-const createRepeat = (...args) => (...until) => () => {
+
+const createRepeat = (phase, ...args) => (...until) => () => {
   if (!source) return
 
   if (count++ > 1000) {
@@ -17,14 +18,18 @@ const createRepeat = (...args) => (...until) => () => {
 
   while (source) {
     const m = re.exec(source)
-    if (!m) {throw new Error("invalid. \n\n" + source + '\n\n' + args)}
+    if (!m) {
+      console.table(tokens)
+      console.table(paths)
+      throw new Error("invalid. \n\n" + source + '\n\n' + args)
+    }
     source = RegExp.rightContext
 
     const index = m.slice(1).findIndex(arg => arg !== undefined)
     const target = concated[index]
 
     const [type, reg, next, isSkip] = target
-    !isSkip && dispatch(type, m[0])
+    !isSkip && dispatch(phase, type, m[0])
 
     next && next()()
     if (index < until.length) break
@@ -45,20 +50,24 @@ const commentsEnd = ["(commentsEnd)", /(-->)/u, () => comments]
 const rawTextStartTags = ["(rawTextStartTags)", /<(script|style)(?=\s|>)/u, () => rawTextElement]
 const rawTextEndTags = ["(rawTextEndTags)", /<\/(script|style)(?=\s|>)[^>]*>/u]
 
+/// start Tag Close
 const startTagsOpen = ["(startTagsOpen)", /<([^\s\/>]+)/u, () => attrs]
 const endTags = ["(endTags)", /<\/([^>\s]+)[^>]*>/u]
 const texts = ["(texts)", /([^<{]+)/u]
 
 
-/// attr
-const attrName = ["(attrName)", /([^\s"'<>=/{]+)/u, () => attr]
-const attrEmpty = ["(attrEmpty)", /((?=[\s/>]))/u]
-const attrOperator = ["=", /(\s*=\s*)/u, () => attrValue]
-
-
+/// start Tag Close
 const startTagsSelfClose = ["(startTagsSelfClose)", /(\/>)/u]
 const startTagsClose = ["(startTagsClose)", /(>)/u]
 
+
+/// attr
+const attrName = ["(attrName)", /([^\s"'<>=/{}]+)/u, () => attr]
+const attrEmpty = ["(attrEmpty)", /((?=[\s/>]))/u]
+const attrOperator = ["=", /(\s*=\s*)/u, () => attrValue]
+const attrShorthandStart = ["(attrShorthandStart)", /(\{)/u, () => attrShorthand]
+const attrShorthandCharacter = ["(attrShorthandCharacter)", /([^\s"'<>=/{}]+)/u]
+const attrShorthandEnd = ["(attrShorthandEnd)", /(\})/u]
 
 /// attrValue
 const unquoted = ["(unquoted)", /([^\s?"'=<>`{]+)/u]
@@ -110,10 +119,10 @@ const parse = () => {
 const comments = () => {
   const lastIndex = source.indexOf("-->")
 
-  dispatch("(textContent)", source.slice(0, lastIndex))
+  dispatch("comment", "(textContent)", source.slice(0, lastIndex))
   source = source.slice(lastIndex)
 
-  dispatch("(commentEnd)", "-->")
+  dispatch("comment", "(commentEnd)", "-->")
   source = source.slice(3)
 }
 
@@ -124,20 +133,21 @@ const rawTextElement = () => {
   attrs()
 
   const lastIndex = source.indexOf(endTag)
-  dispatch("(textContent)", source.slice(0, lastIndex))
+  dispatch("rawTextElement", "(textContent)", source.slice(0, lastIndex))
   source = source.slice(lastIndex)
 }
 
-const root = createRepeat(commentsStart, rawTextStartTags, rawTextEndTags, startTagsOpen, endTags, ws, texts, eachBlockOpenStart, logicBlockOpenStart, logicBlockCloseStart, blockStart)()
-const attrs = createRepeat(ws, attrName, blockStart)(startTagsSelfClose, startTagsClose)
-const attr = createRepeat(attrOperator, attrEmpty)()
-const attrValue = createRepeat(unquoted, singleQuotedStart, doubleQuotedStart, blockStart)()
-const singleQuotedAttrValue = createRepeat(blockStart, singleQuotedCharacters)(singleQuotedEnd)
-const doubleQuotedAttrValue = createRepeat(blockStart, doubleQuotedCharacters)(doubleQuotedEnd)
-const block = createRepeat(blockCharacters, js_string1, js_string2, js_string3)(blockEnd)
-const blocks = createRepeat(logicBlockCharacters, js_string1, js_string2, js_string3, blockStart)(logicBlockEnd)
-const eachBlocks = createRepeat(eachBlockCharacters, eachBlockCharactersWs, js_string1, js_string2, js_string3, blockStart)(eachAs, logicBlockEnd)
-const eachRest = createRepeat(eachBlockCharacters, eachBlockCharactersWs, js_string1, js_string2, js_string3, blockStart)(logicBlockEnd)
+const root = createRepeat("root", commentsStart, rawTextStartTags, rawTextEndTags, startTagsOpen, endTags, ws, texts, eachBlockOpenStart, logicBlockOpenStart, logicBlockCloseStart, blockStart)()
+const attrs = createRepeat("attrs", ws, attrShorthandStart, attrName)(startTagsSelfClose, startTagsClose)
+const attr = createRepeat("attr", attrOperator, attrEmpty)()
+const attrShorthand = createRepeat("attrShorthand", attrShorthandCharacter)(attrShorthandEnd)
+const attrValue = createRepeat("attr", unquoted, singleQuotedStart, doubleQuotedStart, blockStart)()
+const singleQuotedAttrValue = createRepeat("attr", blockStart, singleQuotedCharacters)(singleQuotedEnd)
+const doubleQuotedAttrValue = createRepeat("attr", blockStart, doubleQuotedCharacters)(doubleQuotedEnd)
+const block = createRepeat(null, blockCharacters, js_string1, js_string2, js_string3)(blockEnd)
+const blocks = createRepeat(null, logicBlockCharacters, js_string1, js_string2, js_string3, blockStart)(logicBlockEnd)
+const eachBlocks = createRepeat(null, eachBlockCharacters, eachBlockCharactersWs, js_string1, js_string2, js_string3, blockStart)(eachAs, logicBlockEnd)
+const eachRest = createRepeat(null, eachBlockCharacters, eachBlockCharactersWs, js_string1, js_string2, js_string3, blockStart)(logicBlockEnd)
 
 
 /// Path
@@ -147,9 +157,14 @@ const createPath = (type) => {
   paths.push(path)
 }
 
-const dispatch = (type, value) => {
 
-  tokens.push({type, value})
+const VOID_TAG_NAME = ['area', 'base', 'basefont', 'bgsound', 'br', 'col', 'command', 'embed', 'frame', 'hr', 'image', 'img', 'input', 'isindex', 'keygen', 'link', 'menuitem', 'meta', 'nextid', 'param', 'source', 'track', 'wbr']
+
+let lastTagName
+
+const dispatch = (phase, type, value) => {
+
+  tokens.push({phase, type, value})
 
   switch (type) {
     case "(rawTextStartTags)":
@@ -167,7 +182,7 @@ const dispatch = (type, value) => {
 
     case "(startTagsOpen)":
       createPath("elementOpen")
-      path.tagName = value.slice(1)
+      lastTagName = path.tagName = value.slice(1)
       break
 
     case "(attrName)":
@@ -194,11 +209,30 @@ const dispatch = (type, value) => {
     case "(singleQuotedEnd)":
     case "(doubleQuotedEnd)":
       path.value += '`'
+      if (path.isTemplate) {
+        path.isWatch = true
+        path.value = '{' + path.value + '}'
+      }
       delete path.isTemplate
       break
 
+    case "(attrShorthandStart)":
+      createPath("attr")
+      path.name = ""
+      break
+
+    case "(attrShorthandCharacter)":
+      path.name += value
+      break
+
+    case "(attrShorthandEnd)":
+      path.value = '{' + path.name + '}'
+      path.isWatch = true
+      break
+
+
     case "(logicBlockOpenStart)":
-      createPath("{logicBlockOpenStart}")
+      createPath("logicBlockOpenStart")
       path.tagName = value.slice(1).trim()
       path.value = ""
       path.isWatch = true
@@ -212,7 +246,6 @@ const dispatch = (type, value) => {
       createPath("logicBlockCloseStart")
       path.tagName = value.slice(1).trim()
       break
-
 
     case "(eachBlockOpenStart)":
       createPath("each")
@@ -231,6 +264,14 @@ const dispatch = (type, value) => {
 
 
     case "(blockStart)":
+
+      console.log(path)
+
+      if (path.type === "elementOpen") {
+        createPath("attr")
+        break
+      }
+
       if (path.isTemplate) {
         path.value += '${'
         break
@@ -259,6 +300,10 @@ const dispatch = (type, value) => {
 
     case "(blockEnd)":
       path.value += '}'
+      break
+
+    case "(startTagsClose)":
+      if (VOID_TAG_NAME.includes(lastTagName)) createPath("elementClose")
       break
 
     case "(startTagsSelfClose)":

@@ -112,7 +112,7 @@ const If = (...conditions) => (el, ctx) => {
       console.log(conds)
       destory2()
       const f = fragments[conds.indexOf(true)]
-      destory2 = f(el, ctx)
+      destory2 = f ? f(el, ctx) : noop
     },
     noop
   ]
