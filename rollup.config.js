@@ -12,6 +12,16 @@ const production = !process.env.ROLLUP_WATCH
 
 export default [
   {
+    input: 'src/parser/index.js',
+    output: {
+      // sourcemap: true,
+      format: 'iife',
+      name: 'parser',
+      file: 'public/build/parser.js'
+    }
+  },
+
+  {
     input: 'test/test.js',
     output: {
       // sourcemap: true,

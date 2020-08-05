@@ -24,7 +24,6 @@ export function transform(paths) {
   const reactive = initReactive()
 
   let mutableTable = Object.create(null)
-  let header = ""
   let scriptContent = ""
 
   paths.forEach(path => {
@@ -50,7 +49,11 @@ export function transform(paths) {
 
       case "elementOpen": {
         scopeCount++
-        return `\nelement('${tagName}'`
+        if (tagName.charAt(0).toUpperCase() === tagName.charAt(0)) {
+          return `\ncomponent(${tagName}`
+        }
+
+        return `\nelement(${quote(tagName)}`
       }
 
       case "elementClose": {
@@ -154,9 +157,11 @@ export function transform(paths) {
   console.table(reactive)
 
 
-  header += transformScript(scriptContent, mutableTable, reactive, identifiers).code
+  codes = `render(createInstance${codes})(arguments[0])`
+  codes = transformScript(scriptContent, mutableTable, reactive, identifiers, codes).code
 
-  codes = `${header}\n\nrender(createInstance${codes})(document.body)`
+
+  clearIndentifiers()
   return codes
 }
 

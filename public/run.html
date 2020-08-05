@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Title</title>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.js"></script>
+  <script src="./build/parser.js"></script>
   <script src="./browser/core.js"></script>
   <style>
   .test {
@@ -13,6 +15,12 @@
       color: blue;
   }
   </style>
+  <script>
+  window.addEventListener('message', ({data}) => {
+    let f = new Function(data)
+    f(document.body)
+  })
+  </script>
 </head>
 <body></body>
 </html>

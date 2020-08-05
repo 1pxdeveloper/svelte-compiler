@@ -176,3 +176,39 @@ const $bind = (prop) => (set) => (el) => {
     () => el = null
   ]
 }
+
+
+
+
+const module = (...sources) => (fn) => {
+  if (sources.length === 0) return fn()
+
+
+  const source = sources[0]
+
+  fetch(source).then(res => res.text()).then(res => {
+
+    const code = parser.transformSvelte(res)
+    const f = new Function('return ' + code)
+
+    console.log(f)
+  })
+
+
+
+  return fn()
+}
+
+
+const component = (comp, ...nodes) => (target, ctx) => {
+  let el = document.createElement('Component')
+  let destroyCallback = fragment(...nodes)(el, ctx)
+  target.appendChild(el)
+
+  return () => {
+    destroyCallback = void destroyCallback()
+    el = void el.remove()
+  }
+}
+
+

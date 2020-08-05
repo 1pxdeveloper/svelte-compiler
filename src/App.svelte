@@ -1,6 +1,6 @@
 <script>
-import {transform} from "./parser/transformSvelte"
-import {parseSvelte} from "./parser/parseSvelte"
+import {transform} from "./parser"
+import {parseSvelte} from "./parser"
 
 let code = ""
 
@@ -25,10 +25,16 @@ function parse() {
   iframe && iframe.contentWindow.location.reload()
 }
 
+
+const module = (...sources) => (fn) => {
+  // Promise.all(sources.map(() => abc))
+  return fn()
+}
+
+
 function apply() {
-  setTimeout(() => {
-    iframe.contentWindow.eval(code)
-  }, 250)
+  // if (!iframe.contentWindow.module) iframe.contentWindow.module = module
+  iframe.contentWindow.postMessage(code)
 }
 
 fetch("/Test.svelte").then(res => res.text()).then(code => {

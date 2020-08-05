@@ -75,6 +75,9 @@ import {setIndentifiers} from "../table/identifiers.js"
 
 let $reactives
 let $identifiers
+let $module_soruces
+let $module_specifiers
+let $code
 
 function makeInvalidateExpression(t, path, key) {
   const args = [t.numericLiteral(setIndentifiers(key, $mutableTable)), path.node]
@@ -112,6 +115,25 @@ function makeInvalidate({types: t}) {
         }
       },
 
+      ImportDeclaration(path) {
+
+        const source = path.node.source
+        const specifiers = path.node.specifiers
+
+        console.warn("ImportDeclaration.source", source.value)
+        console.warn("ImportDeclaration.specifiers", specifiers)
+
+        $module_soruces.push(source.value)
+
+        /// @FIXME:
+        $module_specifiers.push(specifiers[0].local.name)
+
+        console.warn("$module_soruces", $module_soruces)
+        console.warn("$module_specifiers", $module_specifiers)
+
+        path.remove()
+      },
+
       Program: {
         exit(path) {
           if (path.shouldSkip) return
@@ -136,18 +158,53 @@ function makeInvalidate({types: t}) {
 
 
           path.shouldSkip = true
+
+          // path.replaceWith(
+          //   t.program([
+          //     ...path.node.body.filter(t.isImportDeclaration),
+          //
+          //     t.functionDeclaration(
+          //       t.identifier("createInstance"),
+          //       [t.identifier(INVALIDATE_FUNC_NAME)],
+          //       t.blockStatement([
+          //         ...path.node.body.filter(node => !t.isImportDeclaration(node)),
+          //         t.returnStatement(t.identifier("[\n" + $reactives.map(test).join(',\n') + "]"))
+          //       ])),
+          //
+          //     t.returnStatement(t.identifier($code))
+          //   ])
+          // )
+
+
+          const blocks = [
+            t.functionDeclaration(
+              t.identifier("createInstance"),
+              [t.identifier(INVALIDATE_FUNC_NAME)],
+
+              t.blockStatement([
+                ...path.node.body.filter(node => !t.isImportDeclaration(node)),
+                t.returnStatement(t.identifier("[\n" + $reactives.map(test).join(',\n') + "]"))
+              ])),
+
+            t.returnStatement(t.identifier($code))
+          ]
+
+
+          const importPaths = $module_soruces.map(source => t.stringLiteral(source))
+
+          /// @FIXME:
+          const importSpecifiers = $module_specifiers.map(source => t.identifier(source))
+
+
           path.replaceWith(
             t.program([
-              ...path.node.body.filter(t.isImportDeclaration),
-              t.functionDeclaration(
-                t.identifier("createInstance"),
-                [t.identifier(INVALIDATE_FUNC_NAME)],
-                t.blockStatement([
-                  ...path.node.body.filter(node => !t.isImportDeclaration(node)),
-                  t.returnStatement(t.identifier("[\n" + $reactives.map(test).join(',\n') + "]"))
-                ]))
+              t.expressionStatement(
+                t.callExpression(t.callExpression(t.identifier('module'), importPaths), [t.arrowFunctionExpression(importSpecifiers, t.blockStatement(blocks))])
+              )
             ])
           )
+
+
         }
       },
     }
@@ -157,10 +214,14 @@ function makeInvalidate({types: t}) {
 babel.registerPlugin('makeInvalidate', makeInvalidate)
 
 
-export function transformScript(source, mutableTable, reactives, identifiers) {
+export function transformScript(source, mutableTable, reactives, identifiers, code) {
   $mutableTable = mutableTable
   $reactives = reactives
   $identifiers = identifiers
+  $code = code
+
+  $module_soruces = []
+  $module_specifiers = []
 
   console.log("reactives", reactives)
 
@@ -169,10 +230,5 @@ export function transformScript(source, mutableTable, reactives, identifiers) {
     plugins: ['makeInvalidate']
   })
 }
-
-
-
-
-
 
 
