@@ -178,36 +178,36 @@ const $bind = (prop) => (set) => (el) => {
 }
 
 
-
-
 const module = (...sources) => (fn) => {
-  if (sources.length === 0) return fn()
-
-
-  const source = sources[0]
-
-  fetch(source).then(res => res.text()).then(res => {
-
+  const fetchSource = (source) => fetch(source).then(res => res.text()).then(res => {
     const code = parser.transformSvelte(res)
-    const f = new Function('return ' + code)
-
-    console.log(f)
+    return new Function(code)
   })
 
-
-
-  return fn()
+  return Promise.all(sources.map(fetchSource)).then(args => {
+    return fn(...args)
+  })
 }
 
 
 const component = (comp, ...nodes) => (target, ctx) => {
-  let el = document.createElement('Component')
-  let destroyCallback = fragment(...nodes)(el, ctx)
-  target.appendChild(el)
+
+  let destroyCallback
+
+  let frag = document.createDocumentFragment()
+  let placeholder = document.createTextNode('')
+  target.appendChild(placeholder)
+
+  const f = comp(frag, ctx)
+
+  f.then(res => {
+    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", res)
+    placeholder.replaceWith(frag)
+  })
 
   return () => {
     destroyCallback = void destroyCallback()
-    el = void el.remove()
+    // el = void el.remove()
   }
 }
 

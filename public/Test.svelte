@@ -3,6 +3,11 @@ import Inner from "./Inner.svelte"
 
 let a = 1
 let b = 2
+
+const onclick = () => {
+
+  console.log(Inner)
+}
 </script>
 
 <Inner>sdklfjklsf</Inner>
@@ -18,3 +23,6 @@ let b = 2
 </label>
 
 <p>{a} + {b} = {a + b}</p>
+
+
+<button on:click={onclick}>skladjf</button>

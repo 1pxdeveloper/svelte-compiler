@@ -198,7 +198,7 @@ function makeInvalidate({types: t}) {
 
           path.replaceWith(
             t.program([
-              t.expressionStatement(
+              t.returnStatement(
                 t.callExpression(t.callExpression(t.identifier('module'), importPaths), [t.arrowFunctionExpression(importSpecifiers, t.blockStatement(blocks))])
               )
             ])
