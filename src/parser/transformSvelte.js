@@ -38,6 +38,12 @@ export function transform(paths) {
   console.log("------------------- mutableTable ---------------------")
   console.table(mutableTable)
 
+
+  /// @TODO: bind등을 고려하여 mutableTable을 tag analyze 해서 mutableTable에 한번 더 올려야 한다.
+
+
+
+
   let scopeCount = 0
   let isComponent = false
 

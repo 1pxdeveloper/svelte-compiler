@@ -48,7 +48,6 @@ const watch = (index, mask) => (callback) => (el, ctx) => {
 const setter = (index, mask) => (callback) => (el, ctx) => {
   const set = (value) => {
     ctx[index](value)
-    ctx.invalidate(mask)
   }
 
   return callback(set)(el, ctx)

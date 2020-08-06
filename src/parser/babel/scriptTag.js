@@ -1,5 +1,6 @@
+import {INVALIDATE_FUNC_NAME} from "./config"
+
 const babel = Babel
-const INVALIDATE_FUNC_NAME = "invalidate"
 
 function getRootScope(scope) {
   while (scope.parent) scope = scope.parent

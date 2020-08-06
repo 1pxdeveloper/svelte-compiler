@@ -11,6 +11,7 @@ mutableTable에서 필요한 identifiers_mask를 생성하여 watch 함.
  */
 import {setIndentifiers} from "../table/identifiers.js"
 import {setReactive} from "../table/reactives"
+import {INVALIDATE_FUNC_NAME} from "./config"
 
 const babel = Babel
 window.babel = babel
@@ -29,10 +30,21 @@ function makeReactive({types: t}) {
       Program: {
         exit(path) {
           identifiers = Object.keys(path.scope.globals)
-          identifiers_mask = identifiers.map(key => setIndentifiers(key, $set_args ? path.scope.globals : $mutableTable)).reduce((a, b) => a | b, 0)
+          identifiers_mask = identifiers.map(key => setIndentifiers(key, path.scope.globals)).reduce((a, b) => a | b, 0)
 
           if (path.node.body) {
-            path.node.body = [t.arrowFunctionExpression($set_args.map(v => t.identifier(v)), path.node.body[0].expression)]
+            if ($set_args.length) {
+
+              path.node.body = [
+                t.arrowFunctionExpression(
+                  $set_args.map(v => t.identifier(v)),
+                  t.callExpression(t.identifier(INVALIDATE_FUNC_NAME), [t.identifier(identifiers_mask), path.node.body[0].expression])
+                )
+              ]
+
+            } else {
+              path.node.body = [t.arrowFunctionExpression([], path.node.body[0].expression)]
+            }
           }
         },
       }
@@ -57,6 +69,6 @@ export function transformReactive(source, mutableTable, set_args = []) {
 
   output.index = setReactive(output.code)
   output.identifiers_mask = identifiers_mask
-  console.warn(source, output.code)
+  console.warn(source, output.code, set_args)
   return output
 }
