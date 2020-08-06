@@ -1,4 +1,4 @@
-import {initIndentifiers, setIndentifiers} from "./table/identifiers.js"
+import {initIndentifiers} from "./table/identifiers.js"
 import {transformReactive} from "./babel/reactive.js"
 import {analyzeScript, transformScript} from "./babel/scriptTag.js"
 import {parseSvelte} from "./parseSvelte.js"
@@ -39,6 +39,7 @@ export function transform(paths) {
   console.table(mutableTable)
 
   let scopeCount = 0
+  let isComponent = false
 
   let codes = paths.map(({type, tagName, name, value, textContent, isWatch}) => {
     switch (type) {
@@ -50,9 +51,11 @@ export function transform(paths) {
       case "elementOpen": {
         scopeCount++
         if (tagName.charAt(0).toUpperCase() === tagName.charAt(0)) {
+          isComponent = true
           return `\ncomponent(${tagName}`
         }
 
+        isComponent = false
         return `\nelement(${quote(tagName)}`
       }
 
@@ -62,15 +65,16 @@ export function transform(paths) {
       }
 
       case "attr": {
+
+        /// attr="value" 형태
+        if (!isWatch) return `attr(${quote(name)}, ${quote(value)})`
+
         const [prefix, name2] = name.split(":", 2)
-
-        if (!isWatch) {
-          return `attr(${quote(name)}, ${quote(value)})`
-        }
-
         const source = value.slice(1, -1)
 
+        /// attr={value} 형태
         if (!name2) {
+          if (isComponent) return generateWatch(source) + '(' + generateSetter(source) + `($prop(${quote(name)})))`
           return generateWatch(source) + `($attr(${quote(name)}))`
         }
 
@@ -157,7 +161,7 @@ export function transform(paths) {
   console.table(reactive)
 
 
-  codes = `render(createInstance${codes})(arguments[0])`
+  codes = `createComponent(createInstance${codes})(arguments[0])`
   codes = transformScript(scriptContent, mutableTable, reactive, identifiers, codes).code
 
 

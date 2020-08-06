@@ -1,21 +1,30 @@
-let dirty
-let bindings = []
+const createContext = (createInstance) => {
+  let dirty
+  let bindings = []
 
-const invalidate = (flag, value) => (dirty |= (dirty || requestAnimationFrame(updates), flag), value)
+  const invalidate = (flag, value) => (dirty |= (dirty || requestAnimationFrame(updates), flag), value)
 
-/// @TODO: 너무 꺼내고 하는게 많은데? 잘 정리 좀 해보자.
-const updates = () => {
-  for (const binding of bindings) update(binding, dirty)
-  dirty = 0
-}
-
-const update = (binding, dirty) => {
-  let [value, updateCallback, dataCallback, ...keys] = binding
-  for (const key of keys) {
-    if (key & dirty) return (value !== (binding[0] = value = dataCallback()) && updateCallback(value))
+  /// @TODO: 너무 꺼내고 하는게 많은데? 잘 정리 좀 해보자.
+  const updates = () => {
+    for (const binding of bindings) update(binding, dirty)
+    dirty = 0
   }
+
+  const update = (binding, dirty) => {
+    let [value, updateCallback, dataCallback, ...keys] = binding
+    for (const key of keys) {
+      if (key & dirty) return (value !== (binding[0] = value = dataCallback()) && updateCallback(value))
+    }
+  }
+
+  const ctx = createInstance(invalidate)
+  ctx.bindings = bindings
+  ctx.invalidate = invalidate
+  return ctx
 }
 
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// @TODO: 변수가 32개 넘어가면 mask 복수개가 필요함.
 const watch = (index, mask) => (callback) => (el, ctx) => {
@@ -25,11 +34,11 @@ const watch = (index, mask) => (callback) => (el, ctx) => {
   updateCallback(value)
 
   let binding = [value, updateCallback, dataCallback, mask]
-  bindings.push(binding)
+  ctx.bindings.push(binding)
 
   return () => {
     binding.length = 0
-    bindings = bindings.filter(b => b.length)
+    ctx.bindings = bindings.filter(b => b.length)
     destroyCallback()
   }
 }
@@ -39,7 +48,7 @@ const watch = (index, mask) => (callback) => (el, ctx) => {
 const setter = (index, mask) => (callback) => (el, ctx) => {
   const set = (value) => {
     ctx[index](value)
-    invalidate(mask)
+    ctx.invalidate(mask)
   }
 
   return callback(set)(el, ctx)
@@ -49,9 +58,9 @@ const setter = (index, mask) => (callback) => (el, ctx) => {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const noop = () => {}
 
-const render = (createInstance, ...nodes) => (target) => {
-  const ctx = createInstance(invalidate)
-  for (const node of nodes) node(target, ctx)
+const createComponent = (createInstance, ...nodes) => (el) => {
+  const ctx = createContext(createInstance)
+  return fragment(...nodes)(el, ctx)
 }
 
 const fragment = (...nodes) => (el, ctx) => {
@@ -70,7 +79,7 @@ const element = (tagName, ...nodes) => (target, ctx) => {
   }
 }
 
-const attr = (nodeName, nodeValue = '') => (el) => {
+const attr = (nodeName, nodeValue) => (el) => {
   el.setAttribute(nodeName, nodeValue)
   return noop
 }
@@ -80,7 +89,7 @@ const $attr = (nodeName) => (el) => [
   () => el = null
 ]
 
-const text = (data = '') => (el) => {
+const text = (data) => (el) => {
   let textNode = document.createTextNode(data)
   el.appendChild(textNode)
   return () => textNode = void textNode.remove()
@@ -90,7 +99,7 @@ const $text = (el) => {
   let textNode = document.createTextNode('')
   el.appendChild(textNode)
   return [
-    (data) => textNode.nodeValue = data,
+    (data) => textNode.textContent = data,
     () => textNode = void textNode.remove()
   ]
 }
@@ -118,14 +127,23 @@ const If = (...conditions) => (el, ctx) => {
 
   let destroyCallbacks = noop
 
+  /// @FIXME: 중복 패턴
+  let frag = document.createDocumentFragment()
+  let placeholder = document.createTextNode('')
+  el.appendChild(placeholder)
+
   return conditions[0]((el, ctx) => [
     () => {
       destroyCallbacks()
       const f = fragments[conds.indexOf(true)]
       destroyCallbacks = f ? f(el, ctx) : noop
+      placeholder.before(frag)
     },
-    () => fragments = conds = destroyCallbacks = void destroyCallbacks()
-  ])(el, ctx)
+    () => {
+      fragments = conds = destroyCallbacks = void destroyCallbacks()
+      frag = placeholder = placeholder.remove()
+    }
+  ])(frag, ctx)
 }
 
 const each = (scopeId, watcher, frag) => (el, ctx) => {
@@ -190,25 +208,43 @@ const module = (...sources) => (fn) => {
 }
 
 
-const component = (comp, ...nodes) => (target, ctx) => {
+const component = (comp, ...nodes) => (el, ctx) => {
+
+  console.log("component!!")
 
   let destroyCallback
+  let destroyCallback2
 
+  /// @FIXME: 중복 패턴
   let frag = document.createDocumentFragment()
   let placeholder = document.createTextNode('')
-  target.appendChild(placeholder)
+  el.appendChild(placeholder)
+
+  /// 몽키패칭
+  frag.setAttribute = (name, value) => {
+    console.log("frag.setAttribute", name, value)
+  }
 
   const f = comp(frag, ctx)
 
   f.then(res => {
-    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", res)
-    placeholder.replaceWith(frag)
+    destroyCallback = res
+    destroyCallback2 = nodes.map(node => node(frag, ctx))
+    placeholder.before(frag)
   })
 
   return () => {
     destroyCallback = void destroyCallback()
-    // el = void el.remove()
+    destroyCallback2 = void destroyCallback2.forEach(destroyCallback => destroyCallback())
   }
 }
 
+const $prop = (prop) => (set) => (el) => {
 
+  console.log("prop", prop, set, el)
+
+  return [
+    (value) => set(value),
+    () => el = null
+  ]
+}

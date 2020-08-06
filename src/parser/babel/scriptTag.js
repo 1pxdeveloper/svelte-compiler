@@ -115,6 +115,16 @@ function makeInvalidate({types: t}) {
         }
       },
 
+      ExportNamedDeclaration(path) {
+        if (path.shouldSkip) return
+
+        console.group("ExportDefaultDeclaration", path)
+        console.groupEnd()
+
+        path.shouldSkip = true
+        path.replaceWith(path.node.declaration)
+      },
+
       ImportDeclaration(path) {
 
         const source = path.node.source

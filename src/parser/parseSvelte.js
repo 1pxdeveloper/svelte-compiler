@@ -161,6 +161,7 @@ const createPath = (type) => {
 const VOID_TAG_NAME = ['area', 'base', 'basefont', 'bgsound', 'br', 'col', 'command', 'embed', 'frame', 'hr', 'image', 'img', 'input', 'isindex', 'keygen', 'link', 'menuitem', 'meta', 'nextid', 'param', 'source', 'track', 'wbr']
 
 let lastTagName
+let isTextData = false
 
 const dispatch = (phase, type, value) => {
 
@@ -183,6 +184,7 @@ const dispatch = (phase, type, value) => {
     case "(startTagsOpen)":
       createPath("elementOpen")
       lastTagName = path.tagName = value.slice(1)
+      isTextData = false
       break
 
     case "(attrName)":
@@ -304,6 +306,7 @@ const dispatch = (phase, type, value) => {
     case "(startTagsClose)":
       if (VOID_TAG_NAME.includes(lastTagName)) createPath("elementClose")
       path.isClosed = true
+      isTextData = true
       break
 
     case "(startTagsSelfClose)":
@@ -316,8 +319,10 @@ const dispatch = (phase, type, value) => {
       break
 
     case "(ws)":
-      createPath("ws")
-      path.textContent = value
+      if (isTextData) {
+        createPath("ws")
+        path.textContent = value
+      }
       break
 
     case "(texts)":
