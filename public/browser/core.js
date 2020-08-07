@@ -1,4 +1,4 @@
-const createContext = (createInstance) => {
+const createContext = (createInstance, props) => {
   let dirty
   let bindings = []
 
@@ -17,9 +17,11 @@ const createContext = (createInstance) => {
     }
   }
 
-  const ctx = createInstance(invalidate)
+  const [ctx, $set] = createInstance(invalidate, props)
   ctx.bindings = bindings
   ctx.invalidate = invalidate
+  ctx.$set = $set
+
   return ctx
 }
 
@@ -58,8 +60,9 @@ const setter = (index, mask) => (callback) => (el, ctx) => {
 const noop = () => {}
 
 const createComponent = (createInstance, ...nodes) => (el) => {
-  const ctx = createContext(createInstance)
-  return fragment(...nodes)(el, ctx)
+  const props = Object.create(null)
+  const ctx = createContext(createInstance, props)
+  return fragment(...nodes)(el, ctx, props)
 }
 
 const fragment = (...nodes) => (el, ctx) => {

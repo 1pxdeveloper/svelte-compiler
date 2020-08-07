@@ -43,6 +43,18 @@ function analyzeIdentifiers({types: t}) {
         markMutable(t, path, path.node.left)
       },
 
+      /// props
+      ExportNamedDeclaration(path) {
+        const kind = path.node.declaration.kind
+        if (kind === "const") return
+
+        path.node.declaration.declarations.forEach(node => {
+          $mutableTable[node.id.name] = true
+          setIndentifiers(node.id.name, $mutableTable)
+        })
+      },
+
+
       // BlockStatement(path) {
       //   console.warn("BlockStatement", path)
       // },
@@ -79,6 +91,7 @@ let $identifiers
 let $module_soruces
 let $module_specifiers
 let $code
+let $props
 
 function makeInvalidateExpression(t, path, key) {
   const args = [t.numericLiteral(setIndentifiers(key, $mutableTable)), path.node]
@@ -116,14 +129,29 @@ function makeInvalidate({types: t}) {
         }
       },
 
+      /// props
       ExportNamedDeclaration(path) {
         if (path.shouldSkip) return
 
         console.group("ExportDefaultDeclaration", path)
         console.groupEnd()
 
+        const kind = path.node.declaration.kind
+        $props[kind] = $props[kind] || []
+
+        path.node.declaration.declarations.forEach(node => {
+          console.log("node", node)
+          console.log("node.id", node.id)
+          console.log("node.init", node.init)
+
+          $props[kind].push([node.id, node.init])
+        })
+
+        // @TODO: Cannot declare props in destructured declaration (3:12)
+
+
         path.shouldSkip = true
-        path.replaceWith(path.node.declaration)
+        path.remove()
       },
 
       ImportDeclaration(path) {
@@ -187,14 +215,28 @@ function makeInvalidate({types: t}) {
           // )
 
 
+          const repl = (kind, props) => {
+            console.log(kind, props)
+
+            return t.variableDeclaration(kind, [
+              t.variableDeclarator(
+                t.objectPattern(props.map(s => s[1] ? t.objectProperty(s[0], t.assignmentPattern(...s)) : t.objectProperty(s[0], s[0], false, true))),
+                t.identifier("$$props"))
+            ])
+          }
+
           const blocks = [
             t.functionDeclaration(
               t.identifier("createInstance"),
-              [t.identifier(INVALIDATE_FUNC_NAME)],
+              [
+                t.identifier(INVALIDATE_FUNC_NAME),
+                t.identifier('$$props')
+              ],
 
               t.blockStatement([
+                ...Object.entries($props).map(([kind, props]) => repl(kind, props)),
                 ...path.node.body.filter(node => !t.isImportDeclaration(node)),
-                t.returnStatement(t.identifier("[\n" + $reactives.map(test).join(',\n') + "]"))
+                t.returnStatement(t.identifier("[[\n" + $reactives.map(test).join(',\n') + "], {x:2}]"))
               ])),
 
             t.returnStatement(t.identifier($code))
@@ -233,7 +275,7 @@ export function transformScript(source, mutableTable, reactives, identifiers, co
 
   $module_soruces = []
   $module_specifiers = []
-
+  $props = []
   console.log("reactives", reactives)
 
   return babel.transform(source, {
@@ -241,5 +283,7 @@ export function transformScript(source, mutableTable, reactives, identifiers, co
     plugins: ['makeInvalidate']
   })
 }
+
+
 
 
