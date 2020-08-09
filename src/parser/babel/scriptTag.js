@@ -1,91 +1,9 @@
-import {INVALIDATE_FUNC_NAME} from "./config"
-
 const babel = Babel
 
-function getRootScope(scope) {
-  while (scope.parent) scope = scope.parent
-  return scope
-}
-
-function isMutable(scope, key) {
-  const rootScope = getRootScope(scope)
-  if (rootScope === scope) return false
-  if (!rootScope.bindings[key] && !rootScope.globals[key]) return false
-  if (rootScope.bindings[key] && rootScope.bindings[key].kind === "const") return false
-  if (rootScope !== scope && scope.bindings[key]) return false
-  return true
-}
-
-let $mutableTable
-
-function markMutable(t, path, ...nodes) {
-  for (let node of nodes) {
-    while (node.object) node = node.object
-    const key = node.name
-    if (isMutable(path.scope, key)) {
-      $mutableTable[key] = true
-    }
-  }
-}
-
-
-// @TODO: 같은 블록에서는 한번만 invalidate해주면 좋을듯..
-
-function analyzeIdentifiers({types: t}) {
-  return {
-    visitor: {
-      UpdateExpression(path) {
-        markMutable(t, path, path.node.argument)
-      },
-
-      AssignmentExpression(path) {
-        if (t.isArrayPattern(path.node.left)) return markMutable(t, path, ...path.node.left.elements)
-        markMutable(t, path, path.node.left)
-      },
-
-      /// props
-      ExportNamedDeclaration(path) {
-        const kind = path.node.declaration.kind
-        if (kind === "const") return
-
-        path.node.declaration.declarations.forEach(node => {
-          $mutableTable[node.id.name] = true
-          setIndentifiers(node.id.name, $mutableTable)
-        })
-      },
-
-
-      // BlockStatement(path) {
-      //   console.warn("BlockStatement", path)
-      // },
-      //
-      // ArrowFunctionExpression(path) {
-      //   console.warn("ArrowFunctionExpression", path)
-      // }
-    }
-  }
-}
-
-babel.registerPlugin('analyzeIdentifiers', analyzeIdentifiers)
-
-export function analyzeScript(source, mutableTable) {
-  $mutableTable = mutableTable
-
-  babel.transform(source, {
-    ast: false,
-    comments: false,
-    code: false,
-    plugins: ['analyzeIdentifiers']
-  })
-
-  return $mutableTable
-}
-
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-
+import {INVALIDATE_FUNC_NAME} from "./config"
 import {setIndentifiers} from "../table/identifiers.js"
 
+let $mutableTable
 let $reactives
 let $identifiers
 let $module_soruces

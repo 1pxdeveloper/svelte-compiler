@@ -1,56 +1,43 @@
-import {initIndentifiers} from "./table/identifiers.js"
-import {transformReactive} from "./babel/reactive.js"
-import {analyzeScript, transformScript} from "./babel/scriptTag.js"
+import {analyzeScript} from "./babel/prepareScriptTag.js"
+import {transformGetter} from "./babel/transformGetter.js"
+import {transformSetter} from "./babel/transformSetter.js"
 import {parseSvelte} from "./parseSvelte.js"
 import {enterScope, exitScope, initReactive, setReactive} from "./table/reactives.js"
-import {clearIndentifiers} from "./table/identifiers"
 
 
 const quote = (str) => `'${String(str).replace(/\n/g, "\\n").replace(/'/g, "\\x27")}'`
 
-const createGenerateWatch = (mutableTable) => (source) => {
-  const {index, identifiers_mask} = transformReactive(source, mutableTable)
-  return `watch(${index}, ${identifiers_mask})`
+const generateWatch = (source) => {
+  const output = transformGetter(source)
+  const ast = output.ast.program.body[0]
+  ast.code = output.code
+  const [index, node] = setReactive(output.code, ast)
+
+  return callback => () => {
+    return callback(`watch(${index}, ${node.mask})`)
+  }
 }
 
-const createGenerateSetter = (mutableTable) => (source) => {
-  const {index, identifiers_mask} = transformReactive(source + '=value', mutableTable, ['value'])
-  return `setter(${index}, ${identifiers_mask})`
+const generateSetter = (source) => {
+  const output = transformSetter(source)
+  const ast = output.ast.program.body[0]
+  ast.code = output.code
+  const [index, node] = setReactive(output.code, output.ast.program.body[0])
+  return `setter(${index})`
 }
 
 export function transform(paths) {
 
-  const identifiers = initIndentifiers()
   const reactive = initReactive()
-
-  let mutableTable = Object.create(null)
-  let scriptContent = ""
-
-  paths.forEach(path => {
-    if (path.type === "rawTextElement" && path.tagName === "script") {
-      analyzeScript(path.textContent, mutableTable)
-    }
-  })
-
-  const generateWatch = createGenerateWatch(mutableTable)
-  const generateSetter = createGenerateSetter(mutableTable)
-
-  console.log("------------------- mutableTable ---------------------")
-  console.table(mutableTable)
-
-
-  /// @TODO: bind등을 고려하여 mutableTable을 tag analyze 해서 mutableTable에 한번 더 올려야 한다.
-
-
-
 
   let scopeCount = 0
   let isComponent = false
+  let scriptContent = ''
 
   let codes = paths.map(({type, tagName, name, value, textContent, isWatch}) => {
     switch (type) {
       case "rawTextElement": {
-        scriptContent = textContent
+        scriptContent += textContent
         return ""
       }
 
@@ -80,21 +67,24 @@ export function transform(paths) {
 
         /// attr={value} 형태
         if (!name2) {
-          if (isComponent) return generateWatch(source) + '(' + generateSetter(source) + `($prop(${quote(name)})))`
-          return generateWatch(source) + `($attr(${quote(name)}))`
+          if (isComponent) return generateWatch(source)(watch => watch + '(' + generateSetter(source) + `($prop(${quote(name)})))`)
+          return generateWatch(source)(watch => watch + `($attr(${quote(name)}))`)
         }
 
         if (prefix === "on") {
-          const {index} = transformReactive(source, mutableTable)
-          return `on('${name2}', ${index})`
+          // const {index} = transformGetter(source)
+          // return `on('${name2}', ${index})`
+          return
         }
 
         if (prefix === "class") {
-          return generateWatch(source) + `($class(${quote(name2)}))`
+          return generateWatch(source)(watch => watch + `($class(${quote(name2)}))`)
         }
 
         if (prefix === "bind") {
-          return generateWatch(source) + '(' + generateSetter(source) + `($bind(${quote(name2)})))`
+          let w = generateWatch(source)
+          let s = generateSetter(source)
+          return w(watch => watch + '(' + s + `($bind(${quote(name2)})))`)
         }
 
         throw new TypeError('not defined! ' + prefix, name2, name)
@@ -107,7 +97,7 @@ export function transform(paths) {
       case "text": {
         if (isWatch) {
           const source = value.slice(1, -1).trim()
-          return generateWatch(source) + `($text)`
+          return generateWatch(source)(watch => watch + `($text)`)
         }
 
         return `text(${quote(textContent)})`
@@ -118,11 +108,11 @@ export function transform(paths) {
 
         switch (tagName) {
           case "#if": {
-            return `\nIf(` + generateWatch(`!!(${value})`) + ', fragment('
+            return generateWatch(`!!(${value})`)(watch => `\nIf(${watch}, fragment(`)
           }
 
           case ":else if": {
-            return '),\n' + generateWatch(`!!(${value})`) + ', fragment('
+            return generateWatch(`!!(${value})`)(watch => `),\n${watch}, fragment(`)
           }
 
           case ":else": {
@@ -137,7 +127,7 @@ export function transform(paths) {
       case "each": {
         const w = generateWatch(name)
         const scopeId = enterScope(value)
-        return `\neach(${scopeId}, ` + w + ', fragment('
+        return w(watch => `\neach(${scopeId}, ${watch}, fragment(`)
       }
 
       case "logicBlockCloseStart": {
@@ -152,7 +142,9 @@ export function transform(paths) {
   })
 
 
-  codes = codes.filter(a => a)
+  const output = analyzeScript(scriptContent, reactive)
+
+  codes = codes.filter(a => a).map(a => typeof a === "function" ? a() : a)
 
   console.table(codes)
 
@@ -160,19 +152,12 @@ export function transform(paths) {
     .map((a, index, A) => (a.startsWith(")") || (A[index - 1] && A[index - 1].endsWith("(")) ? a : ',' + a))
     .join("")
 
-  console.log('----- identifiers ----- ')
-  console.table(identifiers)
+  codes = `createComponent(createInstance${codes})(arguments[0])`
 
-  console.log('----- reactive ----- ')
+  console.log(codes)
   console.table(reactive)
 
-
-  codes = `createComponent(createInstance${codes})(arguments[0])`
-  codes = transformScript(scriptContent, mutableTable, reactive, identifiers, codes).code
-
-
-  clearIndentifiers()
-  return codes
+  console.log(output.code)
 }
 
 

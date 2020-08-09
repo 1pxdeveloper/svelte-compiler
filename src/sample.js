@@ -1,35 +1,9 @@
-module("./Inner.svelte")(Inner => {
-  function createInstance(invalidate) {
+createComponent(createInstance,
+  element('h1', watch(0, 2)($attr('id')), text('x:'), watch(1, 2)($text), text(' '), watch(2, 4)($text), text(' '), watch(3, 6)($text)),
+  element('input', watch(1, 2)(setter(4)($bind('value')))),
+  element('ul', text('\n  '),
+    each(6, watch(5, 0), fragment(text('\n    '),
+      element('li', watch(0, 0)($text), text(' '), watch(1, 0)($text), text(' '), watch(2, 2)($text)), text('\n  '))), text('\n')),
+  element('input', watch(2, 4)(setter(7)($bind('value')))))(arguments[0])
 
-    let a = 1
-    let b = 2
-    let y = 100
-    let z
 
-    const onclick = () => {
-      console.log(Inner)
-      invalidate(2, y++)
-    }
-    return [
-      () => z,
-      () => y,
-      () => a,
-      value => a = value,
-      () => b,
-      value => b = value,
-      () => a + b,
-      () => onclick]
-  }
-
-  return createComponent(createInstance,
-    element('div', text('z:??'), watch(0, 1)($text)),
-    component(Inner, watch(1, 2)($attr('y')), text('sdklfjklsf')),
-    element('label', text('\n  '),
-      element('input', attr('type', 'number'), watch(2, 4)(setter(3, 12)($bind('value'))), attr('min', '0'), attr('max', '10')), text('\n  '),
-      element('input', attr('type', 'range'), watch(2, 4)(setter(3, 12)($bind('value'))), attr('min', '0'), attr('max', '10')), text('\n')),
-    element('label', text('\n  '),
-      element('input', attr('type', 'number'), watch(4, 16)(setter(5, 24)($bind('value'))), attr('min', '0'), attr('max', '10')), text('\n  '),
-      element('input', attr('type', 'range'), watch(4, 16)(setter(5, 24)($bind('value'))), attr('min', '0'), attr('max', '10')), text('\n')),
-    element('p', watch(2, 4)($text), text(' '), text('+ '), watch(4, 16)($text), text(' '), text('= '), watch(6, 20)($text)),
-    element('button', on('click', 7), text('skladjf')))(arguments[0])
-})
