@@ -158,7 +158,7 @@ function analyzeIdentifiers({types: t}) {
                 ...path.node.body.filter(node => !t.isImportDeclaration(node) && !t.isExportDeclaration(node)),
               ])),
 
-            // t.returnStatement(t.identifier($code))
+            t.returnStatement(t.identifier($code()))
           ]
 
 
@@ -189,12 +189,14 @@ function analyzeIdentifiers({types: t}) {
 babel.registerPlugin('analyzeIdentifiers', analyzeIdentifiers)
 
 
-export function analyzeScript(source, reactive) {
+export function analyzeScript(source, reactive, createCode) {
   $reactive = reactive
 
   $module_soruces = []
   $module_specifiers = []
   $props = Object.create(null)
+
+  $code = createCode
 
   const output = babel.transform(source, {
     ast: false,

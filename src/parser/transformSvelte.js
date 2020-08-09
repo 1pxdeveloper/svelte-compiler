@@ -142,22 +142,30 @@ export function transform(paths) {
   })
 
 
-  const output = analyzeScript(scriptContent, reactive)
+  const createCode = () => {
+    codes = codes.filter(a => a).map(a => typeof a === "function" ? a() : a)
 
-  codes = codes.filter(a => a).map(a => typeof a === "function" ? a() : a)
+    console.table(codes)
 
-  console.table(codes)
+    codes = codes
+      .map((a, index, A) => (a.startsWith(")") || (A[index - 1] && A[index - 1].endsWith("(")) ? a : ',' + a))
+      .join("")
 
-  codes = codes
-    .map((a, index, A) => (a.startsWith(")") || (A[index - 1] && A[index - 1].endsWith("(")) ? a : ',' + a))
-    .join("")
+    codes = `createComponent(createInstance${codes})(arguments[0])`
 
-  codes = `createComponent(createInstance${codes})(arguments[0])`
+    return codes
+  }
+
+  const output = analyzeScript(scriptContent, reactive, createCode)
+
 
   console.log(codes)
   console.table(reactive)
 
   console.log(output.code)
+
+
+  return output.code
 }
 
 

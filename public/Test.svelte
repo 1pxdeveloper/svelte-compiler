@@ -36,4 +36,3 @@ function abc() {
 
 
 <input bind:value={y}>
-

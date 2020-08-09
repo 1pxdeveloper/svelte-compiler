@@ -2,7 +2,7 @@ const createContext = (createInstance, props) => {
   let dirty
   let bindings = []
 
-  const invalidate = (flag, value) => (dirty |= (dirty || requestAnimationFrame(updates), flag), value)
+  const invalidate = (value, flag) => (dirty |= (dirty || requestAnimationFrame(updates), flag), value)
 
   /// @TODO: 너무 꺼내고 하는게 많은데? 잘 정리 좀 해보자.
   const updates = () => {
@@ -12,15 +12,23 @@ const createContext = (createInstance, props) => {
 
   const update = (binding, dirty) => {
     let [value, updateCallback, dataCallback, ...keys] = binding
+
+    console.log("update", value, updateCallback, dataCallback, dirty, keys)
+
+
     for (const key of keys) {
       if (key & dirty) return (value !== (binding[0] = value = dataCallback()) && updateCallback(value))
     }
   }
 
-  const [ctx, $set] = createInstance(invalidate, props)
+  const ctx = createInstance(invalidate, props)
   ctx.bindings = bindings
   ctx.invalidate = invalidate
-  ctx.$set = $set
+
+  // const [ctx, $set] = createInstance(invalidate, props)
+  // ctx.bindings = bindings
+  // ctx.invalidate = invalidate
+  // ctx.$set = $set
 
   return ctx
 }
@@ -40,7 +48,7 @@ const watch = (index, mask) => (callback) => (el, ctx) => {
 
   return () => {
     binding.length = 0
-    ctx.bindings = bindings.filter(b => b.length)
+    ctx.bindings = ctx.bindings.filter(b => b.length)
     destroyCallback()
   }
 }
