@@ -115,6 +115,10 @@ export function transform(paths) {
           case ":else": {
             return '),0,fragment('
           }
+
+          case "@html": {
+            return generateWatch(value) + '($html)'
+          }
         }
 
         throw new TypeError('not supported! ' + tagName)

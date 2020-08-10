@@ -184,7 +184,7 @@ const each = (scopeId, watcher, frag) => (el, ctx) => {
 }
 
 
-const toNumber = (a, n = +a) => n === n ? n : a
+const toNumber = (a, n = +a) => a && n === n ? n : a
 
 const $bind = (prop) => (set) => (el) => {
 
@@ -252,7 +252,6 @@ const component = (comp, ...nodes) => (el, ctx) => {
       console.log("2222 frag.setAttribute", name, value, props, _ctx)
     }
 
-
     destroyCallback = _destroyCallback
     placeholder.before(frag)
   })
@@ -262,4 +261,25 @@ const component = (comp, ...nodes) => (el, ctx) => {
     destroyCallback = void destroyCallback()
     destroyCallback2 = void destroyCallback2.forEach(destroyCallback => destroyCallback())
   }
+}
+
+const $html = (el) => {
+  let template = document.createElement('template')
+  let frag = []
+  let textNode = document.createTextNode('')
+  el.appendChild(textNode)
+
+  return [
+    (html) => {
+      for (const node of frag) node.remove()
+      template.innerHTML = html
+      frag = Array.from(template.content.childNodes)
+      textNode.before(template.content)
+    },
+
+    () => {
+      for (const node of frag) node.remove()
+      template = frag = textNode = void textNode.remove()
+    }
+  ]
 }
