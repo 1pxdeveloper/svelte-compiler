@@ -136,7 +136,7 @@ function transformScriptPlugin({types: t}) {
               if (referencePath.scope.uid === rootScopeUid) continue
               const assignmentsPath = findAssignmentsPath(referencePath)
               if (!assignmentsPath) continue
-              if (findLeftMost(assignmentsPath.node.left).name === binding.identifier.name) {
+              if (findLeftMost(assignmentsPath.node.left) === referencePath.node) {
                 insertInvalidate(t, assignmentsPath, flag)
               }
             }
