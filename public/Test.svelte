@@ -1,38 +1,29 @@
 <script>
-export let x = 100
-export let z
-export const k = 200
+// import Inner from "./Inner.svelte"
 
-let y = 200
+export let prop = 100
+let x = 0
+let y = 0
+let arr = [1, 2, 3]
 
-z = x + 300
-
-let arr = [1, 2, 3, 4, 5]
-
-function test() {
-  let x = "test"
-  let korea = "is good!"
-
-  z = 100
-  y = 500 + x
-  z = x = z++
-}
-
-function abc() {
+setInterval(() => {
   x++
-}
+}, 1000)
+
+
+setInterval(() => {
+  y++
+}, 3000)
+
 </script>
 
 
-<h1 id="test-{x}">x:{x} {y} {x + y}</h1>
-
-<input bind:value={x}>
+<h1 id={x}>Hello, {x} {y} {x + y}</h1>
 
 <ul>
   {#each arr as row, index}
-    <li>{row} {index} {x + index}</li>
+    <li>{row} {index} {row + x}</li>
   {/each}
 </ul>
 
-
-<input bind:value={y}>
+<!--<Inner {x}/>-->

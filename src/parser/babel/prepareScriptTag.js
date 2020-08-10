@@ -9,6 +9,16 @@ let $module_specifiers
 let $code
 
 
+const findReactivePathNode = (path) => {
+
+  while (path.parentPath) {
+    if (path.node.mask >= 0) {
+      return path.node
+    }
+    path = path.parentPath
+  }
+}
+
 const transformReactive = (t) => (arr) => {
   return t.arrayExpression(arr.map(node => {
 
@@ -26,24 +36,12 @@ const transformReactive = (t) => (arr) => {
   }))
 }
 
-const findReactivePathNode = (path) => {
-
-  while (path.parentPath) {
-    if (path.node.mask >= 0) {
-      return path.node
-    }
-    path = path.parentPath
-  }
-}
-
 function analyzeIdentifiers({types: t}) {
 
-  console.log("$reactive$reactive$reactive$reactive", $reactive)
-
-  let context = t.returnStatement(transformReactive(t)($reactive))
-
+  let props = t.objectExpression([])
+  let context = t.returnStatement(t.arrayExpression([transformReactive(t)($reactive), props]))
   console.log(context)
-
+  console.log("props!!!", props)
 
   return {
     visitor: {
@@ -124,10 +122,8 @@ function analyzeIdentifiers({types: t}) {
               const node = findReactivePathNode(referencePath)
 
               if (node) {
-                node.mask |= flag
+                node.elements[1].value |= flag
               }
-
-              console.log("@@@@@@@@@@@@@@@@@rrr", node)
             }
           })
 
@@ -135,7 +131,7 @@ function analyzeIdentifiers({types: t}) {
           console.log("$props$props$props$props$props", $props)
 
 
-          const repl = (kind, props) => {
+          const makeProps = (kind, props) => {
             console.log(kind, props)
 
             return t.variableDeclaration(kind, [
@@ -154,7 +150,7 @@ function analyzeIdentifiers({types: t}) {
               ],
 
               t.blockStatement([
-                ...Object.entries($props).map(([kind, props]) => repl(kind, props)),
+                ...Object.entries($props).map(([kind, props]) => makeProps(kind, props)),
                 ...path.node.body.filter(node => !t.isImportDeclaration(node) && !t.isExportDeclaration(node)),
               ])),
 

@@ -61,9 +61,9 @@ html, body {
 }
 
 body {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.2;
-  font-family: "monaco", "JetBrains Mono", monospace;
+  font-family: "JetBrains Mono", "monaco", monospace;
   padding: 20px;
   box-sizing: border-box;
 }
@@ -81,6 +81,7 @@ body {
 }
 
 textarea {
+  font-size: inherit;
   tab-size: 2;
 }
 </style>

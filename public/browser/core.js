@@ -1,33 +1,26 @@
 const createContext = (createInstance, props) => {
   let dirty
-  let bindings = []
 
   const invalidate = (value, flag) => (dirty |= (dirty || requestAnimationFrame(updates), flag), value)
 
+  const [ctx] = createInstance(invalidate, props)
+  ctx.bindings = []
+
   /// @TODO: 너무 꺼내고 하는게 많은데? 잘 정리 좀 해보자.
   const updates = () => {
-    for (const binding of bindings) update(binding, dirty)
+    for (const binding of ctx.bindings) update(binding, dirty)
     dirty = 0
   }
 
   const update = (binding, dirty) => {
     let [value, updateCallback, dataCallback, ...keys] = binding
-
-    console.log("update", value, updateCallback, dataCallback, dirty, keys)
-
-
     for (const key of keys) {
       if (key & dirty) return (value !== (binding[0] = value = dataCallback()) && updateCallback(value))
     }
   }
 
-  const ctx = createInstance(invalidate, props)
-  ctx.bindings = bindings
-  ctx.invalidate = invalidate
-
   // const [ctx, $set] = createInstance(invalidate, props)
   // ctx.bindings = bindings
-  // ctx.invalidate = invalidate
   // ctx.$set = $set
 
   return ctx
@@ -37,13 +30,14 @@ const createContext = (createInstance, props) => {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// @TODO: 변수가 32개 넘어가면 mask 복수개가 필요함.
-const watch = (index, mask) => (callback) => (el, ctx) => {
+const watch = (index) => (callback) => (el, ctx) => {
   let [updateCallback, destroyCallback] = callback(el, ctx)
-  let dataCallback = ctx[index]
+  let [dataCallback, mask] = ctx[index]
   let value = dataCallback()
   updateCallback(value)
 
   let binding = [value, updateCallback, dataCallback, mask]
+  ctx.bindings = ctx.bindings || []
   ctx.bindings.push(binding)
 
   return () => {
@@ -55,7 +49,10 @@ const watch = (index, mask) => (callback) => (el, ctx) => {
 
 
 /// @TODO: 변수가 32개 넘어가면 mask 복수개가 필요함.
-const setter = (index, mask) => (callback) => (el, ctx) => {
+const setter = (index) => (callback) => (el, ctx) => {
+
+  console.log("setter", ctx, index)
+
   const set = (value) => {
     ctx[index](value)
   }

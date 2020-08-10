@@ -22,17 +22,6 @@ export default [
   },
 
   {
-    input: 'test/test.js',
-    output: {
-      // sourcemap: true,
-      format: 'iife',
-      // name: 'app',
-      file: 'public/build/test_bundle.js'
-    },
-    plugins: [mySvelete()],
-  },
-
-  {
     input: 'src/main.ts',
     output: {
       sourcemap: true,

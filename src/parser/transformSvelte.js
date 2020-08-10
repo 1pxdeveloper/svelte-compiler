@@ -10,19 +10,14 @@ const quote = (str) => `'${String(str).replace(/\n/g, "\\n").replace(/'/g, "\\x2
 const generateWatch = (source) => {
   const output = transformGetter(source)
   const ast = output.ast.program.body[0]
-  ast.code = output.code
-  const [index, node] = setReactive(output.code, ast)
-
-  return callback => () => {
-    return callback(`watch(${index}, ${node.mask})`)
-  }
+  const index = setReactive(output.code, ast)
+  return `watch(${index})`
 }
 
 const generateSetter = (source) => {
   const output = transformSetter(source)
   const ast = output.ast.program.body[0]
-  ast.code = output.code
-  const [index, node] = setReactive(output.code, output.ast.program.body[0])
+  const index = setReactive(output.code, ast)
   return `setter(${index})`
 }
 
@@ -67,8 +62,8 @@ export function transform(paths) {
 
         /// attr={value} 형태
         if (!name2) {
-          if (isComponent) return generateWatch(source)(watch => watch + '(' + generateSetter(source) + `($prop(${quote(name)})))`)
-          return generateWatch(source)(watch => watch + `($attr(${quote(name)}))`)
+          if (isComponent) return generateWatch(source) + '(' + generateSetter(source) + `($prop(${quote(name)})))`
+          return generateWatch(source) + `($attr(${quote(name)}))`
         }
 
         if (prefix === "on") {
@@ -78,13 +73,13 @@ export function transform(paths) {
         }
 
         if (prefix === "class") {
-          return generateWatch(source)(watch => watch + `($class(${quote(name2)}))`)
+          return generateWatch(source) + `($class(${quote(name2)}))`
         }
 
         if (prefix === "bind") {
           let w = generateWatch(source)
           let s = generateSetter(source)
-          return w(watch => watch + '(' + s + `($bind(${quote(name2)})))`)
+          return w + '(' + s + `($bind(${quote(name2)})))`
         }
 
         throw new TypeError('not defined! ' + prefix, name2, name)
@@ -97,7 +92,7 @@ export function transform(paths) {
       case "text": {
         if (isWatch) {
           const source = value.slice(1, -1).trim()
-          return generateWatch(source)(watch => watch + `($text)`)
+          return generateWatch(source) + `($text)`
         }
 
         return `text(${quote(textContent)})`
@@ -108,11 +103,11 @@ export function transform(paths) {
 
         switch (tagName) {
           case "#if": {
-            return generateWatch(`!!(${value})`)(watch => `\nIf(${watch}, fragment(`)
+            return `\nIf` + generateWatch(`!!(${value})`) + `, fragment(`
           }
 
           case ":else if": {
-            return generateWatch(`!!(${value})`)(watch => `),\n${watch}, fragment(`)
+            return `),\n` + generateWatch(`!!(${value})`) + `, fragment(`
           }
 
           case ":else": {
@@ -125,9 +120,9 @@ export function transform(paths) {
 
       /// {#each ... as row, index (key)}
       case "each": {
-        const w = generateWatch(name)
+        const watch = generateWatch(name)
         const scopeId = enterScope(value)
-        return w(watch => `\neach(${scopeId}, ${watch}, fragment(`)
+        return `\neach(${scopeId}, ${watch}, fragment(`
       }
 
       case "logicBlockCloseStart": {
@@ -143,14 +138,9 @@ export function transform(paths) {
 
 
   const createCode = () => {
-    codes = codes.filter(a => a).map(a => typeof a === "function" ? a() : a)
-
+    codes = codes.filter(a => a)
     console.table(codes)
-
-    codes = codes
-      .map((a, index, A) => (a.startsWith(")") || (A[index - 1] && A[index - 1].endsWith("(")) ? a : ',' + a))
-      .join("")
-
+    codes = codes.map((a, index, A) => (a.startsWith(")") || (A[index - 1] && A[index - 1].endsWith("(")) ? a : ',' + a)).join("")
     codes = `createComponent(createInstance${codes})(arguments[0])`
 
     return codes
