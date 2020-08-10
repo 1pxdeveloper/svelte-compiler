@@ -11,7 +11,7 @@ let $code
 
 
 const findLeftMost = (node) => {
-  while(node.object) {
+  while (node.object) {
     node = node.object
   }
   return node
@@ -113,13 +113,15 @@ function transformScriptPlugin({types: t}) {
           console.log("Scope", path.scope)
 
 
-          /// Scope를 통해 값이 변경되는 구간을 invalidate로 체크한다.
           const rootScopeUid = path.scope.uid
           const refs = Object.values(path.scope.bindings)
-            .filter(binding => !binding.constant)
-            .sort((a, b) => b.constantViolations.length - a.constantViolations.length)
+            .filter(binding => !binding.constant || binding.referenced)
+            .sort((a, b) => b.constantViolations.length + b.references - a.constantViolations.length + a.references)
 
+
+          // Scope를 통해 값이 변경되는 구간을 invalidate로 체크한다.
           refs.forEach((binding, index) => {
+            const {referencePaths} = binding
             const flag = 1 << index // @FIXME: flag는 32개까지만 가능하다.
 
             // invalidate To Assignment or Update expression
@@ -129,22 +131,24 @@ function transformScriptPlugin({types: t}) {
               insertInvalidate(t, constantViolationPath, flag)
             }
 
-            // ref mask
-            const {referencePaths} = binding
+            // member 접근자 일경우
+            for (const referencePath of referencePaths) {
+              if (referencePath.scope.uid === rootScopeUid) continue
+              const assignmentsPath = findAssignmentsPath(referencePath)
+              if (!assignmentsPath) continue
+              if (findLeftMost(assignmentsPath.node.left).name === binding.identifier.name) {
+                insertInvalidate(t, assignmentsPath, flag)
+              }
+            }
+
+            // context ref mask
             for (const referencePath of referencePaths) {
               const node = findReactivePathNode(referencePath)
               if (node) {
                 node.elements[1].value |= flag
               }
-
-              if (referencePath.scope.uid === rootScopeUid) continue
-              const assignmentsPath = findAssignmentsPath(referencePath)
-              if (!assignmentsPath) continue
-
-              if (findLeftMost(assignmentsPath.node.left) === referencePath.node) {
-                insertInvalidate(t, assignmentsPath, flag)
-              }
             }
+
           })
 
 
