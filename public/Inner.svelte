@@ -1,8 +1,11 @@
 <script>
-export let y
-let x = 100
+export let y = 5
+export let x = 100
+
+
+let once = x + y
 </script>
 
 <div>
-  <h1>Hi, x:{x} y:{y}~</h1>
+  <h1>Inner!! Hi, x:{x} y:{y}~ {x + y} but once: {once}</h1>
 </div>

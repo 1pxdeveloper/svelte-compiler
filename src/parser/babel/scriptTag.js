@@ -4,17 +4,15 @@ import {INVALIDATE_FUNC_NAME} from "./config.js"
 
 let $reactive
 let $props
+let $propsTable
 let $module_soruces
 let $module_specifiers
 let $code
 
 
 const findReactivePathNode = (path) => {
-
   while (path.parentPath) {
-    if (path.node.mask >= 0) {
-      return path.node
-    }
+    if (path.node.isReactive) return path.node
     path = path.parentPath
   }
 }
@@ -31,14 +29,17 @@ const transformReactive = (t) => (arr) => {
       return arrow
     }
 
-    node.mask = 0
+    node.isReactive = true
     return node
   }))
 }
 
-function analyzeIdentifiers({types: t}) {
+function transformScriptPlugin({types: t}) {
 
-  let props = t.objectExpression([])
+  let props = t.objectExpression(Object.entries($propsTable).map(([key, value]) => {
+    return t.objectProperty(t.identifier(key), t.numericLiteral(value))
+  }))
+
   let context = t.returnStatement(t.arrayExpression([transformReactive(t)($reactive), props]))
   console.log(context)
   console.log("props!!!", props)
@@ -94,33 +95,28 @@ function analyzeIdentifiers({types: t}) {
 
           console.log("Scope", path.scope)
 
+
+          /// Scope를 통해 값이 변경되는 구간을 invalidate로 체크한다.
           const rootScopeUid = path.scope.uid
           const refs = Object.values(path.scope.bindings)
             .filter(binding => !binding.constant)
             .sort((a, b) => b.constantViolations.length - a.constantViolations.length)
 
-          console.log("#########################", refs)
-
           refs.forEach((binding, index) => {
             const flag = 1 << index // @FIXME: flag는 32개까지만 가능하다.
 
-            // invalidate To assignment or update expression
+            // invalidate To Assignment or Update expression
             for (const constantViolation of binding.constantViolations) {
               const {uid} = constantViolation.scope
               if (uid === rootScopeUid) continue
-
               const path = constantViolation.isAssignmentExpression() ? constantViolation : constantViolation.parentPath
               path.replaceWith(t.callExpression(t.identifier(INVALIDATE_FUNC_NAME), [path.node, t.numericLiteral(flag)]))
             }
 
-            // ref
-            console.log("binding", binding)
+            // ref mask
             const {referencePaths} = binding
-            console.log(referencePaths)
-
             for (const referencePath of referencePaths) {
               const node = findReactivePathNode(referencePath)
-
               if (node) {
                 node.elements[1].value |= flag
               }
@@ -128,9 +124,7 @@ function analyzeIdentifiers({types: t}) {
           })
 
 
-          console.log("$props$props$props$props$props", $props)
-
-
+          ///
           const makeProps = (kind, props) => {
             console.log(kind, props)
 
@@ -154,7 +148,7 @@ function analyzeIdentifiers({types: t}) {
                 ...path.node.body.filter(node => !t.isImportDeclaration(node) && !t.isExportDeclaration(node)),
               ])),
 
-            t.returnStatement(t.identifier($code()))
+            t.returnStatement(t.identifier($code))
           ]
 
 
@@ -162,7 +156,6 @@ function analyzeIdentifiers({types: t}) {
 
           /// @FIXME:
           const importSpecifiers = $module_specifiers.map(source => t.identifier(source))
-
 
           path.shouldSkip = true
           path.replaceWith(
@@ -177,27 +170,26 @@ function analyzeIdentifiers({types: t}) {
         }
       },
 
-
     }
   }
 }
 
-babel.registerPlugin('analyzeIdentifiers', analyzeIdentifiers)
+babel.registerPlugin('transformScriptPlugin', transformScriptPlugin)
 
-
-export function analyzeScript(source, reactive, createCode) {
+export function transformScript(source, reactive, code, propsTable) {
   $reactive = reactive
-
   $module_soruces = []
   $module_specifiers = []
-  $props = Object.create(null)
 
-  $code = createCode
+  $props = Object.create(null)
+  $propsTable = propsTable
+
+  $code = code
 
   const output = babel.transform(source, {
     ast: false,
     comments: false,
-    plugins: ['analyzeIdentifiers']
+    plugins: ['transformScriptPlugin']
   })
 
   return output

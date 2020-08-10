@@ -1,10 +1,14 @@
-const createContext = (createInstance, props) => {
+const createContext = (createInstance, $$props) => {
   let dirty
 
   const invalidate = (value, flag) => (dirty |= (dirty || requestAnimationFrame(updates), flag), value)
 
-  const [ctx] = createInstance(invalidate, props)
+  const [ctx, set] = createInstance(invalidate, $$props)
   ctx.bindings = []
+  ctx.set = (prop, value) => {
+    if (!prop in set) return
+    $$props[prop] = ctx[set[prop]](value)
+  }
 
   /// @TODO: 너무 꺼내고 하는게 많은데? 잘 정리 좀 해보자.
   const updates = () => {
@@ -18,10 +22,6 @@ const createContext = (createInstance, props) => {
       if (key & dirty) return (value !== (binding[0] = value = dataCallback()) && updateCallback(value))
     }
   }
-
-  // const [ctx, $set] = createInstance(invalidate, props)
-  // ctx.bindings = bindings
-  // ctx.$set = $set
 
   return ctx
 }
@@ -64,10 +64,12 @@ const setter = (index) => (callback) => (el, ctx) => {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const noop = () => {}
 
-const createComponent = (createInstance, ...nodes) => (el) => {
-  const props = Object.create(null)
+const createComponent = (createInstance, ...nodes) => (el, props = Object.create(null)) => {
   const ctx = createContext(createInstance, props)
-  return fragment(...nodes)(el, ctx, props)
+  return [
+    fragment(...nodes)(el, ctx),
+    ctx
+  ]
 }
 
 const fragment = (...nodes) => (el, ctx) => {
@@ -220,38 +222,44 @@ const component = (comp, ...nodes) => (el, ctx) => {
   console.log("component!!")
 
   let destroyCallback
-  let destroyCallback2
+
 
   /// @FIXME: 중복 패턴
   let frag = document.createDocumentFragment()
   let placeholder = document.createTextNode('')
   el.appendChild(placeholder)
 
+  let props = Object.create(null)
+
   /// 몽키패칭
   frag.setAttribute = (name, value) => {
-    console.log("frag.setAttribute", name, value)
+    props[name] = value
+    console.log("1111 frag.setAttribute", name, value, props)
   }
 
-  const f = comp(frag, ctx)
 
-  f.then(res => {
-    destroyCallback = res
-    destroyCallback2 = nodes.map(node => node(frag, ctx))
+  let destroyCallback2 = nodes.map(node => node(frag, ctx))
+
+
+  comp(frag, props).then(res => {
+
+    console.log("@@@@@@@@@@@@@@@@", res)
+
+    let [_destroyCallback, _ctx] = res
+
+    frag.setAttribute = (name, value) => {
+      _ctx.set(name, value)
+      console.log("2222 frag.setAttribute", name, value, props, _ctx)
+    }
+
+
+    destroyCallback = _destroyCallback
     placeholder.before(frag)
   })
+
 
   return () => {
     destroyCallback = void destroyCallback()
     destroyCallback2 = void destroyCallback2.forEach(destroyCallback => destroyCallback())
   }
-}
-
-const $prop = (prop) => (set) => (el) => {
-
-  console.log("prop", prop, set, el)
-
-  return [
-    (value) => set(value),
-    () => el = null
-  ]
 }

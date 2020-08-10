@@ -1,8 +1,9 @@
-import {analyzeScript} from "./babel/prepareScriptTag.js"
+import {transformScript} from "./babel/scriptTag.js"
 import {transformGetter} from "./babel/transformGetter.js"
 import {transformSetter} from "./babel/transformSetter.js"
 import {parseSvelte} from "./parseSvelte.js"
 import {enterScope, exitScope, initReactive, setReactive} from "./table/reactives.js"
+import {analyzeScript} from "./babel/scriptTagProps"
 
 
 const quote = (str) => `'${String(str).replace(/\n/g, "\\n").replace(/'/g, "\\x27")}'`
@@ -14,12 +15,14 @@ const generateWatch = (source) => {
   return `watch(${index})`
 }
 
-const generateSetter = (source) => {
+const generateSetterIndex = (source) => {
   const output = transformSetter(source)
   const ast = output.ast.program.body[0]
-  const index = setReactive(output.code, ast)
-  return `setter(${index})`
+  return setReactive(output.code, ast)
 }
+
+const generateSetter = (source) => `setter(${generateSetterIndex(source)})`
+
 
 export function transform(paths) {
 
@@ -62,7 +65,6 @@ export function transform(paths) {
 
         /// attr={value} 형태
         if (!name2) {
-          if (isComponent) return generateWatch(source) + '(' + generateSetter(source) + `($prop(${quote(name)})))`
           return generateWatch(source) + `($attr(${quote(name)}))`
         }
 
@@ -137,23 +139,18 @@ export function transform(paths) {
   })
 
 
-  const createCode = () => {
-    codes = codes.filter(a => a)
-    console.table(codes)
-    codes = codes.map((a, index, A) => (a.startsWith(")") || (A[index - 1] && A[index - 1].endsWith("(")) ? a : ',' + a)).join("")
-    codes = `createComponent(createInstance${codes})(arguments[0])`
+  codes = codes.filter(a => a)
+  console.table(codes)
+  codes = codes.map((a, index, A) => (a.startsWith(")") || (A[index - 1] && A[index - 1].endsWith("(")) ? a : ',' + a)).join("")
+  codes = `createComponent(createInstance${codes})(...arguments)`
 
-    return codes
-  }
-
-  const output = analyzeScript(scriptContent, reactive, createCode)
+  let props = Object.create(null)
+  analyzeScript(scriptContent, generateSetterIndex, props)
+  const output = transformScript(scriptContent, reactive, codes, props)
 
 
-  console.log(codes)
   console.table(reactive)
-
   console.log(output.code)
-
 
   return output.code
 }

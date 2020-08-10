@@ -1,9 +1,9 @@
 <script>
-// import Inner from "./Inner.svelte"
+import Inner from "./Inner.svelte"
 
 export let prop = 100
-let x = 0
-let y = 0
+let x = 10
+let y = 20
 let arr = [1, 2, 3]
 
 setInterval(() => {
@@ -18,6 +18,9 @@ setInterval(() => {
 </script>
 
 
+<Inner {x} {y}/>
+
+
 <h1 id={x}>Hello, {x} {y} {x + y}</h1>
 
 <ul>
@@ -26,4 +29,3 @@ setInterval(() => {
   {/each}
 </ul>
 
-<!--<Inner {x}/>-->
