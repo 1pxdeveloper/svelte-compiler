@@ -12,6 +12,11 @@ function analyzeIdentifiers({types: t}) {
           $props[node.id.name] = $generateSetter(node.id.name)
         })
       },
+
+      Program(path) {
+
+        console.warn("SCOPE!!!!!!!!!!", path.scope)
+      }
     }
   }
 }

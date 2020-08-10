@@ -10,6 +10,20 @@ let $module_specifiers
 let $code
 
 
+const findLeftMost = (node) => {
+  while(node.object) {
+    node = node.object
+  }
+  return node
+}
+
+const findAssignmentsPath = (path) => {
+  while (path.parentPath) {
+    if (path.isAssignmentExpression()) return path
+    path = path.parentPath
+  }
+}
+
 const findReactivePathNode = (path) => {
   while (path.parentPath) {
     if (path.node.isReactive) return path.node
@@ -33,6 +47,9 @@ const transformReactive = (t) => (arr) => {
     return node
   }))
 }
+
+const insertInvalidate = (t, path, flag) => path.replaceWith(t.callExpression(t.identifier(INVALIDATE_FUNC_NAME), [path.node, t.numericLiteral(flag)]))
+
 
 function transformScriptPlugin({types: t}) {
 
@@ -107,10 +124,9 @@ function transformScriptPlugin({types: t}) {
 
             // invalidate To Assignment or Update expression
             for (const constantViolation of binding.constantViolations) {
-              const {uid} = constantViolation.scope
-              if (uid === rootScopeUid) continue
-              const path = constantViolation.isAssignmentExpression() ? constantViolation : constantViolation.parentPath
-              path.replaceWith(t.callExpression(t.identifier(INVALIDATE_FUNC_NAME), [path.node, t.numericLiteral(flag)]))
+              if (constantViolation.scope.uid === rootScopeUid) continue
+              const constantViolationPath = constantViolation.isAssignmentExpression() ? constantViolation : constantViolation.parentPath
+              insertInvalidate(t, constantViolationPath, flag)
             }
 
             // ref mask
@@ -119,6 +135,14 @@ function transformScriptPlugin({types: t}) {
               const node = findReactivePathNode(referencePath)
               if (node) {
                 node.elements[1].value |= flag
+              }
+
+              if (referencePath.scope.uid === rootScopeUid) continue
+              const assignmentsPath = findAssignmentsPath(referencePath)
+              if (!assignmentsPath) continue
+
+              if (findLeftMost(assignmentsPath.node.left) === referencePath.node) {
+                insertInvalidate(t, assignmentsPath, flag)
               }
             }
           })

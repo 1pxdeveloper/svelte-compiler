@@ -8,11 +8,10 @@ import {analyzeScript} from "./babel/scriptTagProps"
 
 const quote = (str) => `'${String(str).replace(/\n/g, "\\n").replace(/'/g, "\\x27")}'`
 
-const generateWatch = (source) => {
+const generateWatchIndex = (source) => {
   const output = transformGetter(source)
   const ast = output.ast.program.body[0]
-  const index = setReactive(output.code, ast)
-  return `watch(${index})`
+  return setReactive(output.code, ast)
 }
 
 const generateSetterIndex = (source) => {
@@ -21,6 +20,7 @@ const generateSetterIndex = (source) => {
   return setReactive(output.code, ast)
 }
 
+const generateWatch = (source) => `watch(${generateWatchIndex(source)})`
 const generateSetter = (source) => `setter(${generateSetterIndex(source)})`
 
 
@@ -69,9 +69,7 @@ export function transform(paths) {
         }
 
         if (prefix === "on") {
-          // const {index} = transformGetter(source)
-          // return `on('${name2}', ${index})`
-          return
+          return generateWatch(source) + `($on(${quote(name2)}))`
         }
 
         if (prefix === "class") {
@@ -105,7 +103,7 @@ export function transform(paths) {
 
         switch (tagName) {
           case "#if": {
-            return `\nIf` + generateWatch(`!!(${value})`) + `, fragment(`
+            return `\nIf(` + generateWatch(`!!(${value})`) + `, fragment(`
           }
 
           case ":else if": {

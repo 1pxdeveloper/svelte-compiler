@@ -81,22 +81,10 @@ const element = (tagName, ...nodes) => (target, ctx) => {
   let el = document.createElement(tagName)
   let destroyCallback = fragment(...nodes)(el, ctx)
   target.appendChild(el)
-
-  return () => {
-    destroyCallback = void destroyCallback()
-    el = void el.remove()
-  }
+  return () => destroyCallback = el = void destroyCallback() || void el.remove()
 }
 
-const attr = (nodeName, nodeValue) => (el) => {
-  el.setAttribute(nodeName, nodeValue)
-  return noop
-}
-
-const $attr = (nodeName) => (el) => [
-  (nodeValue) => el.setAttribute(nodeName, nodeValue),
-  () => el = null
-]
+const attr = (nodeName, nodeValue) => (el) => (el.setAttribute(nodeName, nodeValue), noop)
 
 const text = (data) => (el) => {
   let textNode = document.createTextNode(data)
@@ -104,6 +92,7 @@ const text = (data) => (el) => {
   return () => textNode = void textNode.remove()
 }
 
+/// with watch
 const $text = (el) => {
   let textNode = document.createTextNode('')
   el.appendChild(textNode)
@@ -113,16 +102,68 @@ const $text = (el) => {
   ]
 }
 
-const on = (type, index) => (el, ctx) => {
-  let listener = ctx[index]()
-  el.addEventListener(type, listener)
-  return () => listener = void el.removeEventListener(type, listener)
+const $html = (el) => {
+  let template = document.createElement('template')
+  let frag = []
+  let textNode = document.createTextNode('')
+  el.appendChild(textNode)
+
+  return [
+    (html) => {
+      for (const node of frag) node.remove()
+      template.innerHTML = html
+      frag = Array.from(template.content.childNodes)
+      textNode.before(template.content)
+    },
+
+    () => {
+      for (const node of frag) node.remove()
+      template = frag = textNode = void textNode.remove()
+    }
+  ]
 }
+
+const $attr = (nodeName) => (el) => [
+  (nodeValue) => el.setAttribute(nodeName, nodeValue),
+  () => el = null
+]
 
 const $class = (className) => (el) => [
   (flag) => el.classList.toggle(className, flag),
   () => el = null
 ]
+
+const $on = (type) => (el, ctx, listener) => [
+  (value) => {
+    el.removeEventListener(type, listener)
+    el.addEventListener(type, (listener = value))
+  },
+  () => listener = void el.removeEventListener(type, listener)
+]
+
+
+const toNumber = (a, n = +a) => a && n === n ? n : a
+
+
+/// @TODO: plugin 식으로 만들어야 확장하기 편할듯
+const $bind = (prop) => (set) => (el) => {
+
+  if (prop === "value") {
+    const handler = () => set(toNumber(el.value))
+    el.addEventListener("input", handler)
+
+    return [
+      (value) => el.value = value,
+      () => el = void el.removeEventListener("input", handler)
+    ]
+  }
+
+  return [
+    (value) => el[prop] = value,
+    () => el = null
+  ]
+}
+
 
 const If = (...conditions) => (el, ctx) => {
   let fragments = conditions.filter((a, index) => index % 2)
@@ -155,6 +196,7 @@ const If = (...conditions) => (el, ctx) => {
   ])(frag, ctx)
 }
 
+
 const each = (scopeId, watcher, frag) => (el, ctx) => {
 
   let $callback = (el, ctx) => {
@@ -181,27 +223,6 @@ const each = (scopeId, watcher, frag) => (el, ctx) => {
   }
 
   return watcher($callback)(el, ctx)
-}
-
-
-const toNumber = (a, n = +a) => a && n === n ? n : a
-
-const $bind = (prop) => (set) => (el) => {
-
-  if (prop === "value") {
-    const handler = () => set(toNumber(el.value))
-    el.addEventListener("input", handler)
-
-    return [
-      (value) => el.value = value,
-      () => el = void el.removeEventListener("input", handler)
-    ]
-  }
-
-  return [
-    (value) => el[prop] = value,
-    () => el = null
-  ]
 }
 
 
@@ -261,25 +282,4 @@ const component = (comp, ...nodes) => (el, ctx) => {
     destroyCallback = void destroyCallback()
     destroyCallback2 = void destroyCallback2.forEach(destroyCallback => destroyCallback())
   }
-}
-
-const $html = (el) => {
-  let template = document.createElement('template')
-  let frag = []
-  let textNode = document.createTextNode('')
-  el.appendChild(textNode)
-
-  return [
-    (html) => {
-      for (const node of frag) node.remove()
-      template.innerHTML = html
-      frag = Array.from(template.content.childNodes)
-      textNode.before(template.content)
-    },
-
-    () => {
-      for (const node of frag) node.remove()
-      template = frag = textNode = void textNode.remove()
-    }
-  ]
 }
