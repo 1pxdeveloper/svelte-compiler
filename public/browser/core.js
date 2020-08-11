@@ -207,32 +207,45 @@ const If = (...conditions) => (el, ctx) => {
 }
 
 
-const each = (scopeId, watcher, frag) => (el, ctx) => {
+const each = (scopeId, watcher, frag) => {
 
-  let $callback = (el, ctx) => {
+  return watcher((el, ctx) => {
     console.group("each/$callback")
     console.log("@@@@@@@@@@@@@@@@@@@", el, ctx)
     console.groupEnd()
 
+    let prev = []
     let destroyCallbacks = []
 
     return [
-      (data) => {
-        for (const destroyCallback of destroyCallbacks) destroyCallback()
+      (curr) => {
+        const difference = diff(prev, curr)
+        prev = curr
 
-        for (let i = 0; i < data.length; i++) {
-          destroyCallbacks.push(frag(el, ctx[scopeId](data[i], i)))
+        for (const [type, value, prev_index, index] of difference) {
+          console.log(type, value, prev_index, index)
+
+          switch (type) {
+            case diff.DELETE:
+              destroyCallbacks[prev_index]()
+              destroyCallbacks[prev_index] = noop
+              break
+
+            case diff.INSERT:
+              destroyCallbacks[index] = frag(el, ctx[scopeId](value, index, curr))
+              break
+          }
         }
 
+
+
         console.group("each/update")
-        console.log("??????????????????????????????????", data)
+        console.log("??????????????????????????????????", curr)
         console.groupEnd()
       },
-      noop,
+      () => prev = el = ctx = null
     ]
-  }
-
-  return watcher($callback)(el, ctx)
+  })
 }
 
 
