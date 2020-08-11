@@ -1,17 +1,18 @@
 <script>
-	let user = { loggedIn: false };
+let count = 0
+let double
 
-	function toggle() {
-		user.loggedIn = !user.loggedIn;
-	}
+$: double = count * 2
+$: if (count >= 10) {
+  alert(`count is dangerously high!`)
+  count = 9
+}
+
+function handleClick() {
+  count += 1
+}
 </script>
 
-{#if user.loggedIn}
-	<button on:click={toggle}>
-		Log out
-	</button>
-{:else}
-	<button on:click={toggle}>
-		Log in
-	</button>
-{/if}
+<button on:click={handleClick}>
+  Clicked {count} {double} {count === 1 ? 'time' : 'times'}
+</button>

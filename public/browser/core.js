@@ -1,19 +1,17 @@
+const noop = () => {}
+
 const createContext = (createInstance, $$props) => {
   let dirty
-
-  const invalidate = (value, flag) => (dirty |= (dirty || requestAnimationFrame(updates), flag), value)
-
-  const [ctx, set] = createInstance(invalidate, $$props)
-  ctx.bindings = []
-  ctx.set = (prop, value) => {
-    if (!prop in set) return
-    $$props[prop] = ctx[set[prop]](value)
-  }
+  const bindings = []
 
   /// @TODO: 너무 꺼내고 하는게 많은데? 잘 정리 좀 해보자.
-  const updates = () => {
-    for (const binding of ctx.bindings) update(binding, dirty)
+  const updates = (t, count = 0) => {
+    console.log("update", count)
+    if (count > 1024) return requestAnimationFrame(updates) /// 무한 사이클 방지 해야 될텐데...
+    const curr = dirty
     dirty = 0
+    for (const binding of bindings) update(binding, curr)
+    if (dirty !== 0) updates(t, count + 1)
   }
 
   const update = (binding, dirty) => {
@@ -21,6 +19,20 @@ const createContext = (createInstance, $$props) => {
     for (const key of keys) {
       if (key & dirty) return (value !== (binding[0] = value = dataCallback()) && updateCallback(value))
     }
+  }
+
+  const $$invalidate = (value, flag) => (dirty |= (dirty || requestAnimationFrame(updates), flag), value)
+
+  const $$update = (callback, mask) => {
+    callback()
+    bindings.push([NaN, callback, () => NaN, mask])
+  }
+
+  const [ctx, set] = createInstance($$invalidate, $$props, $$update)
+  ctx.bindings = bindings
+  ctx.set = (prop, value) => {
+    if (!prop in set) return
+    $$props[prop] = ctx[set[prop]](value)
   }
 
   return ctx
@@ -62,8 +74,6 @@ const setter = (index) => (callback) => (el, ctx) => {
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const noop = () => {}
-
 const createComponent = (createInstance, ...nodes) => (el, props = Object.create(null)) => {
   const ctx = createContext(createInstance, props)
   return [

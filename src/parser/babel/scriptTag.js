@@ -1,5 +1,5 @@
 const babel = Babel
-import {INVALIDATE_FUNC_NAME} from "./config.js"
+import {INVALIDATE_FUNC_NAME, PROPS_NAME, UPDATE_FUNC_NAME} from "./config.js"
 
 
 let $reactive
@@ -31,6 +31,13 @@ const findReactivePathNode = (path) => {
   }
 }
 
+const findLabeledPath = (path) => {
+  while (path.parentPath) {
+    if (path.node.type === "LabeledStatement" && path.node.label.name === "$") return path
+    path = path.parentPath
+  }
+}
+
 const transformReactive = (t) => (arr) => {
   return t.arrayExpression(arr.map(node => {
 
@@ -48,7 +55,18 @@ const transformReactive = (t) => (arr) => {
   }))
 }
 
-const insertInvalidate = (t, path, flag) => path.replaceWith(t.callExpression(t.identifier(INVALIDATE_FUNC_NAME), [path.node, t.numericLiteral(flag)]))
+const transformInvalidate = (t, path, flag) => path.replaceWith(t.callExpression(t.identifier(INVALIDATE_FUNC_NAME), [path.node, t.numericLiteral(flag)]))
+
+const transformLabeled = (t) => (path) => {
+  path.replaceWith(
+    t.expressionStatement(
+      t.callExpression(t.identifier(UPDATE_FUNC_NAME), [
+        t.arrowFunctionExpression([], t.isExpressionStatement(path.node.body) ? path.node.body.expression : t.blockStatement([path.node.body])),
+        t.numericLiteral(path.mask)
+      ])
+    )
+  )
+}
 
 
 function transformScriptPlugin({types: t}) {
@@ -60,6 +78,8 @@ function transformScriptPlugin({types: t}) {
   let context = t.returnStatement(t.arrayExpression([transformReactive(t)($reactive), props]))
   console.log(context)
   console.log("props!!!", props)
+
+  let labels = []
 
   return {
     visitor: {
@@ -101,6 +121,10 @@ function transformScriptPlugin({types: t}) {
         })
       },
 
+      LabeledStatement(path) {
+        if (path.node.label.name === "$") labels.push(path)
+      },
+
       Program: {
         enter(path) {
           if (path.shouldSkip) return
@@ -110,11 +134,9 @@ function transformScriptPlugin({types: t}) {
         exit(path) {
           if (path.shouldSkip) return
 
-          console.log("Scope", path.scope)
-
-
-          const rootScopeUid = path.scope.uid
-          const refs = Object.values(path.scope.bindings)
+          const scope = path.scope
+          const rootScopeUid = scope.uid
+          const refs = Object.values(scope.bindings)
             .filter(binding => !binding.constant || binding.referenced)
             .sort((a, b) => b.constantViolations.length + b.references - a.constantViolations.length + a.references)
 
@@ -124,51 +146,68 @@ function transformScriptPlugin({types: t}) {
             const {referencePaths} = binding
             const flag = 1 << index // @FIXME: flag는 32개까지만 가능하다.
 
-            // invalidate To Assignment or Update expression
+            /// [Reactivity / Statements]
             for (const constantViolation of binding.constantViolations) {
-              if (constantViolation.scope.uid === rootScopeUid) continue
+              if (!(findLabeledPath(constantViolation)) && constantViolation.scope.uid === rootScopeUid) continue
               const constantViolationPath = constantViolation.isAssignmentExpression() ? constantViolation : constantViolation.parentPath
-              insertInvalidate(t, constantViolationPath, flag)
+              transformInvalidate(t, constantViolationPath, flag)
             }
 
-            // member 접근자 일경우
+            /// [Reactivity / Updating objects]
             for (const referencePath of referencePaths) {
               if (referencePath.scope.uid === rootScopeUid) continue
               const assignmentsPath = findAssignmentsPath(referencePath)
               if (!assignmentsPath) continue
               if (findLeftMost(assignmentsPath.node.left) === referencePath.node) {
-                insertInvalidate(t, assignmentsPath, flag)
+                transformInvalidate(t, assignmentsPath, flag)
               }
             }
 
             // context ref mask
             for (const referencePath of referencePaths) {
+
               const node = findReactivePathNode(referencePath)
               if (node) {
                 node.elements[1].value |= flag
               }
-            }
 
+              const labeledPath = findLabeledPath(referencePath)
+              if (labeledPath) {
+                labeledPath.mask |= flag
+              }
+            }
           })
 
 
-          ///
+          /// [Reactivity / Statements]
+          labels.forEach(transformLabeled(t))
+
+
+          /// [Props]
           const makeProps = (kind, props) => {
             console.log(kind, props)
 
             return t.variableDeclaration(kind, [
               t.variableDeclarator(
                 t.objectPattern(props.map(s => s[1] ? t.objectProperty(s[0], t.assignmentPattern(...s)) : t.objectProperty(s[0], s[0], false, true))),
-                t.identifier("$$props"))
+                t.identifier(PROPS_NAME))
             ])
           }
 
+
+          /*
+          createInstance($$invalidate, $$props, $$update) {
+            $$invalidate(x = 5, 1)
+            return [[() => x], 1]
+          }
+           */
           const blocks = [
             t.functionDeclaration(
               t.identifier("createInstance"),
               [
                 t.identifier(INVALIDATE_FUNC_NAME),
-                t.identifier('$$props')
+                t.identifier(PROPS_NAME),
+                t.identifier(UPDATE_FUNC_NAME)
               ],
 
               t.blockStatement([

@@ -90,9 +90,10 @@ const logicBlockEnd = ["(logicBlockEnd)", /(\})/u]
 
 /// blocks
 const eachBlockOpenStart = ["(eachBlockOpenStart)", /(\{\s*#each\s+)/u, () => eachBlocks]
-const eachBlockCharacters = ["(eachBlockCharacters)", /([^\s"'`{}]+)/u]
+const eachBlockCharacters = ["(eachBlockCharacters)", /([^\s"'`{}(]+)/u]
 const eachBlockCharactersWs = ["(eachBlockCharacters)", /(\s+)/u]
 const eachAs = ["(eachBlockAs)", /(\s+as\s+)/u, () => eachRest]
+const eachKey = ["(eachBlockKey)", /\s*(\([^)]+\))/u]
 
 
 /// block
@@ -147,7 +148,7 @@ const doubleQuotedAttrValue = createRepeat("attr", blockStart, doubleQuotedChara
 const block = createRepeat(null, blockCharacters, js_string1, js_string2, js_string3)(blockEnd)
 const blocks = createRepeat(null, logicBlockCharacters, js_string1, js_string2, js_string3, blockStart)(logicBlockEnd)
 const eachBlocks = createRepeat(null, eachBlockCharacters, eachBlockCharactersWs, js_string1, js_string2, js_string3, blockStart)(eachAs, logicBlockEnd)
-const eachRest = createRepeat(null, eachBlockCharacters, eachBlockCharactersWs, js_string1, js_string2, js_string3, blockStart)(logicBlockEnd)
+const eachRest = createRepeat(null, eachKey, eachBlockCharacters, eachBlockCharactersWs, js_string1, js_string2, js_string3, blockStart)(logicBlockEnd)
 
 
 /// Path

@@ -14,7 +14,6 @@ function analyzeIdentifiers({types: t}) {
       },
 
       Program(path) {
-
         console.warn("SCOPE!!!!!!!!!!", path.scope)
       }
     }

@@ -35,7 +35,9 @@ export function transform(paths) {
   let codes = paths.map(({type, tagName, name, value, textContent, isWatch}) => {
     switch (type) {
       case "rawTextElement": {
-        scriptContent += textContent
+        if (tagName === "script") {
+          scriptContent += textContent
+        }
         return ""
       }
 
@@ -124,6 +126,9 @@ export function transform(paths) {
 
       /// {#each ... as row, index (key)}
       case "each": {
+
+        console.log("each", name, value)
+
         const watch = generateWatch(name)
         const scopeId = enterScope(value)
         return `\neach(${scopeId}, ${watch}, fragment(`
