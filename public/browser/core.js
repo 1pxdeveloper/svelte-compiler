@@ -54,7 +54,7 @@ const createContext = (createInstance, $$props) => {
 }
 
 
-const inheritContext = (ctx, scope, args) => {
+const createScopeContext = (ctx, scope, args) => {
 
   let [newCtx, mask] = scope
 
@@ -63,6 +63,11 @@ const inheritContext = (ctx, scope, args) => {
 
   newCtx.watch = ctx.watch
   newCtx.set = ctx.set
+
+  newCtx.update = function () {
+    // @TODO
+  }
+
   return newCtx
 }
 
@@ -215,6 +220,9 @@ const If = (...conditions) => (el, ctx) => {
 
 
 const each = (scopeId, watcher, node) => {
+  const FRAGMENT = 0
+  const CONTEXT = 1
+  const DESTORY = 2
 
   return watcher((el, ctx) => {
     console.group("each/$callback")
@@ -222,10 +230,7 @@ const each = (scopeId, watcher, node) => {
     console.groupEnd()
 
     let prev = []
-    let prevFragments = []
-    let fragments = []
-    let destroyCallbacks = []
-    let prevDestroyCallbacks = []
+    let eachFragments = []
 
     let placeholder = document.createTextNode('')
     el.appendChild(placeholder)
@@ -235,49 +240,49 @@ const each = (scopeId, watcher, node) => {
         const difference = diff(prev, curr)
         prev = curr
 
-        let prevFragments = fragments
-        let prevDestroyCallbacks = destroyCallbacks
-
-        destroyCallbacks = []
-        fragments = []
+        let prevFragments = eachFragments
+        eachFragments = []
 
         for (const [type, value, prev_index, index] of difference) {
           console.log(type, value, prev_index, index)
 
           switch (type) {
             case diff.DELETE:
-              prevDestroyCallbacks[prev_index]()
+              prevFragments[prev_index][DESTORY]()
               break
 
             case diff.NOT_CHANGED:
-              fragments[index] = prevFragments[prev_index]
-              destroyCallbacks[index] = prevDestroyCallbacks[prev_index]
-              /// @TODO: data Patch Here!!!!!!!!!!
+              eachFragments[index] = prevFragments[prev_index]
+              const eachContext = prevFragments[prev_index][CONTEXT]
+              console.log("@TODO: data update Here!!!!!!!!!!", eachContext)
               break
           }
         }
-
 
         for (const [type, value, prev_index, index] of difference) {
           switch (type) {
+
+            /// @TODO: diff.PATCH: insert이나 DELETE에 속한 data일 때,
+            case diff.PATCH:
+              break
+
             case diff.INSERT:
-              let frag = document.createDocumentFragment()
-              destroyCallbacks[index] = node(frag, inheritContext(ctx, ctx[scopeId], [value, index, curr]))
-              let insertPlaceholder = fragments[index + 1] && fragments[index + 1][0] || placeholder
-              fragments[index] = Array.from(frag.childNodes)
-              insertPlaceholder.before(frag)
+              let eachFragment = document.createDocumentFragment()
+              let eachContext = createScopeContext(ctx, ctx[scopeId], [value, index, curr])
+              let eachDestroyCallback = node(eachFragment, eachContext)
+              eachFragments[index] = [Array.from(eachFragment.childNodes), eachContext, eachDestroyCallback]
+
+              let insertPlaceholder = eachFragments[index + 1] && eachFragments[index + 1][FRAGMENT][0] || placeholder
+              insertPlaceholder.before(eachFragment)
               break
           }
         }
 
-        fragments = fragments.filter(v => v)
-        destroyCallbacks = destroyCallbacks.filter(v => v)
-
+        eachFragments = eachFragments.filter(v => v)
 
         console.group("each/update")
         console.log("??????????????????????????????????", curr)
-        console.log("fragments", fragments)
-        console.log("destroyCallbacks", destroyCallbacks)
+        console.log("eachFragments", eachFragments)
         console.groupEnd()
       },
 
