@@ -49,7 +49,7 @@ function diff(oldArray, newArray, compareFn = Object.is, newStart = 0, newEnd = 
     while (c > 0 && r > 0 && compareFn(oldArray[oldStart + c - 1], newArray[newStart + r - 1])) {
       c--
       r--
-      diff[diffIndex--] = [NOT_CHANGED, oldArray[oldStart + c], oldStart + c, newStart + r]
+      diff[diffIndex--] = [NOT_CHANGED, newArray[newStart + r], oldStart + c, newStart + r]
     }
 
     if (!d) break

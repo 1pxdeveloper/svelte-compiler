@@ -212,9 +212,10 @@ const dispatch = (phase, type, value) => {
     case "(singleQuotedEnd)":
     case "(doubleQuotedEnd)":
       path.value += '`'
-      if (path.isTemplate) {
-        path.isWatch = true
+      if (path.isTemplate && path.isWatch) {
         path.value = '{' + path.value + '}'
+      } else {
+        path.value = path.value.slice(1, -1)
       }
       delete path.isTemplate
       break
@@ -232,7 +233,6 @@ const dispatch = (phase, type, value) => {
       path.value = '{' + path.name + '}'
       path.isWatch = true
       break
-
 
     case "(logicBlockOpenStart)":
       createPath("logicBlockOpenStart")
@@ -271,11 +271,13 @@ const dispatch = (phase, type, value) => {
       // @FIXME:
       if (path.type === "elementOpen" && !path.isClosed) {
         createPath("attr")
+        path.isWatch = true
         break
       }
 
       if (path.isTemplate) {
         path.value += '${'
+        path.isWatch = true
         break
       }
 

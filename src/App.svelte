@@ -52,7 +52,7 @@ let x = {}
   <textarea class="flex" cols="80" rows="30" bind:value={code}></textarea>
 </div>
 
-<iframe test="aksdfjsdf" {iframe} {...x} y={x + '2>0'} src="/run.html" bind:this={iframe} frameborder="0" width="100%" height="300px" on:load={apply}></iframe>
+<iframe test="aksdfjsdf" {iframe} {...x} y={x + '2>0'} src="/run.html" bind:this={iframe} frameborder="0" width="100%" height="600px" on:load={apply}></iframe>
 
 
 <style globals>

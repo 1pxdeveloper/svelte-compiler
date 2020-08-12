@@ -1,17 +1,25 @@
 module()(() => {
-  function createInstance(invalidate, $$props) {
-    let user = {loggedIn: false}
+  function createInstance($$invalidate, $$props, $$update) {
+    let name = 'world'
+    let arr = name.split('').map(m => ({name: m}))
+    return [
 
-    function toggle() {
-      user.loggedIn = !user.loggedIn
-    }
+      [[() => name, 1], [() => `text`, 0], value => $$invalidate(name = value, 1), [() => arr, 2],
 
-    return [[[() => !!user.loggedIn, 0], [() => toggle, 0], [() => !!!user.loggedIn, 0]], {}]
+
+
+        [(row, index) => [[() => index, 0], [() => row.name, 0], [() => `text`, 0], value => row.name = value]], 10]
+
+
+
+
+      , {}]
   }
 
   return createComponent(createInstance,
-    If(watch(0), fragment(
-      element('button', watch(1)($on('click')), text('\n		'), text('Log out\n	')))),
-    If(watch(2), fragment(
-      element('button', watch(1)($on('click')), text('\n		'), text('Log in\n	')))))(...arguments)
+    element('h1', text('Hello '), watch(0)($text), text('!')),
+    element('input', watch(1)($attr('type')), watch(0)(setter(2)($bind('value')))),
+    each(4, watch(3), fragment(
+      element('h2', watch(0)($text), text(' '), watch(1)($text)),
+      element('input', watch(2)($attr('type')), watch(1)(setter(3)($bind('value')))))))(...arguments)
 })

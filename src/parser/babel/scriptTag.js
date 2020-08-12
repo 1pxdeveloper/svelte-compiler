@@ -31,6 +31,14 @@ const findReactivePathNode = (path) => {
   }
 }
 
+const findReactiveScopePathNode = (path) => {
+  while (path.parentPath) {
+    if (path.node.isReactiveScope) return path.node
+    path = path.parentPath
+  }
+}
+
+
 const findLabeledPath = (path) => {
   while (path.parentPath) {
     if (path.node.type === "LabeledStatement" && path.node.label.name === "$") return path
@@ -47,7 +55,14 @@ const transformReactive = (t) => (arr) => {
       const output = babel.transform(params, {})
       const arrow = output.ast.program.body[0].expression
       arrow.body = transformReactive(t)(arr2)
-      return arrow
+      arrow.isScope = true
+
+      const node2 = t.arrayExpression([arrow, t.numericLiteral(0)])
+
+      console.warn("node2node2node2", node2)
+
+      node2.isReactiveScope = "adsflkajsdlkfjaslkfjklasd"
+      return node2
     }
 
     node.isReactive = true
@@ -80,6 +95,8 @@ function transformScriptPlugin({types: t}) {
   console.log("props!!!", props)
 
   let labels = []
+
+  let scopeRefs = []
 
   return {
     visitor: {
@@ -121,8 +138,25 @@ function transformScriptPlugin({types: t}) {
         })
       },
 
+      /// [Reactivity / Statements]
       LabeledStatement(path) {
         if (path.node.label.name === "$") labels.push(path)
+      },
+
+      ArrowFunctionExpression(path) {
+        if (path.node.isScope) {
+          console.warn("scope ArrowFunctionExpression", path)
+
+          let c = Object.values(path.scope.bindings).reduce((a, b) => {
+            return {
+              ...a, ...b,
+              constantViolations: [...a.constantViolations, ...b.constantViolations],
+              referencePaths: [...a.referencePaths, ...b.referencePaths]
+            }
+          })
+
+          scopeRefs = [...scopeRefs, c]
+        }
       },
 
       Program: {
@@ -136,15 +170,45 @@ function transformScriptPlugin({types: t}) {
 
           const scope = path.scope
           const rootScopeUid = scope.uid
-          const refs = Object.values(scope.bindings)
-            .filter(binding => !binding.constant || binding.referenced)
+
+          let refs = [...Object.values(scope.bindings), ...scopeRefs]
+
+          console.warn("Refs", refs)
+
+          refs = refs.filter(binding => !binding.constant || binding.referenced)
             .sort((a, b) => b.constantViolations.length + b.references - a.constantViolations.length + a.references)
 
 
           // Scope를 통해 값이 변경되는 구간을 invalidate로 체크한다.
           refs.forEach((binding, index) => {
-            const {referencePaths} = binding
+            const {path, referencePaths} = binding
             const flag = 1 << index // @FIXME: flag는 32개까지만 가능하다.
+
+
+            /// @FIXME:... scope flag
+            const node = findReactiveScopePathNode(path)
+            if (node) {
+              if (node.elements) {
+                node.elements[1].value |= flag
+              }
+            }
+
+            // context ref mask
+            for (const referencePath of referencePaths) {
+
+              const node = findReactivePathNode(referencePath)
+              if (node) {
+                if (node.elements) {
+                  node.elements[1].value |= flag
+                }
+              }
+
+              const labeledPath = findLabeledPath(referencePath)
+              if (labeledPath) {
+                labeledPath.mask |= flag
+              }
+            }
+
 
             /// [Reactivity / Statements]
             for (const constantViolation of binding.constantViolations) {
@@ -160,20 +224,6 @@ function transformScriptPlugin({types: t}) {
               if (!assignmentsPath) continue
               if (findLeftMost(assignmentsPath.node.left) === referencePath.node) {
                 transformInvalidate(t, assignmentsPath, flag)
-              }
-            }
-
-            // context ref mask
-            for (const referencePath of referencePaths) {
-
-              const node = findReactivePathNode(referencePath)
-              if (node) {
-                node.elements[1].value |= flag
-              }
-
-              const labeledPath = findLabeledPath(referencePath)
-              if (labeledPath) {
-                labeledPath.mask |= flag
               }
             }
           })

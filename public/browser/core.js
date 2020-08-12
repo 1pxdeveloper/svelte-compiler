@@ -2,7 +2,7 @@ const noop = () => {}
 
 const createContext = (createInstance, $$props) => {
   let dirty
-  const bindings = []
+  let bindings = []
 
   /// @TODO: 너무 꺼내고 하는게 많은데? 잘 정리 좀 해보자.
   const updates = (t, count = 0) => {
@@ -29,7 +29,22 @@ const createContext = (createInstance, $$props) => {
   }
 
   const [ctx, set] = createInstance($$invalidate, $$props, $$update)
-  ctx.bindings = bindings
+
+  ctx.watch = function (index, updateCallback) {
+    const [dataCallback, mask] = this[index]
+    const value = dataCallback()
+    updateCallback(value)
+
+    let binding = [value, updateCallback, dataCallback, mask]
+    bindings.push(binding)
+
+    return () => {
+      binding.length = 0
+      bindings = bindings.filter(b => b.length)
+      binding = null
+    }
+  }
+
   ctx.set = (prop, value) => {
     if (!prop in set) return
     $$props[prop] = ctx[set[prop]](value)
@@ -39,38 +54,30 @@ const createContext = (createInstance, $$props) => {
 }
 
 
+const inheritContext = (ctx, scope, args) => {
+
+  let [newCtx, mask] = scope
+
+  newCtx = newCtx(...args)
+  console.log("newCtx, mask", newCtx, mask)
+
+  newCtx.watch = ctx.watch
+  newCtx.set = ctx.set
+  return newCtx
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// @TODO: 변수가 32개 넘어가면 mask 복수개가 필요함.
 const watch = (index) => (callback) => (el, ctx) => {
   let [updateCallback, destroyCallback] = callback(el, ctx)
-  let [dataCallback, mask] = ctx[index]
-  let value = dataCallback()
-  updateCallback(value)
-
-  let binding = [value, updateCallback, dataCallback, mask]
-  ctx.bindings = ctx.bindings || []
-  ctx.bindings.push(binding)
-
-  return () => {
-    binding.length = 0
-    ctx.bindings = ctx.bindings.filter(b => b.length)
-    destroyCallback()
-  }
+  let unwatch = ctx.watch(index, updateCallback)
+  return () => unwatch = void unwatch() & destroyCallback()
 }
 
 
 /// @TODO: 변수가 32개 넘어가면 mask 복수개가 필요함.
-const setter = (index) => (callback) => (el, ctx) => {
-
-  console.log("setter", ctx, index)
-
-  const set = (value) => {
-    ctx[index](value)
-  }
-
-  return callback(set)(el, ctx)
-}
+const setter = (index) => (callback) => (el, ctx) => callback(ctx[index])(el, ctx)
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -207,7 +214,7 @@ const If = (...conditions) => (el, ctx) => {
 }
 
 
-const each = (scopeId, watcher, frag) => {
+const each = (scopeId, watcher, node) => {
 
   return watcher((el, ctx) => {
     console.group("each/$callback")
@@ -215,34 +222,65 @@ const each = (scopeId, watcher, frag) => {
     console.groupEnd()
 
     let prev = []
+    let prevFragments = []
+    let fragments = []
     let destroyCallbacks = []
+    let prevDestroyCallbacks = []
+
+    let placeholder = document.createTextNode('')
+    el.appendChild(placeholder)
 
     return [
       (curr) => {
         const difference = diff(prev, curr)
         prev = curr
 
+        let prevFragments = fragments
+        let prevDestroyCallbacks = destroyCallbacks
+
+        destroyCallbacks = []
+        fragments = []
+
         for (const [type, value, prev_index, index] of difference) {
           console.log(type, value, prev_index, index)
 
           switch (type) {
             case diff.DELETE:
-              destroyCallbacks[prev_index]()
-              destroyCallbacks[prev_index] = noop
+              prevDestroyCallbacks[prev_index]()
               break
 
-            case diff.INSERT:
-              destroyCallbacks[index] = frag(el, ctx[scopeId](value, index, curr))
+            case diff.NOT_CHANGED:
+              fragments[index] = prevFragments[prev_index]
+              destroyCallbacks[index] = prevDestroyCallbacks[prev_index]
+              /// @TODO: data Patch Here!!!!!!!!!!
               break
           }
         }
 
 
+        for (const [type, value, prev_index, index] of difference) {
+          switch (type) {
+            case diff.INSERT:
+              let frag = document.createDocumentFragment()
+              destroyCallbacks[index] = node(frag, inheritContext(ctx, ctx[scopeId], [value, index, curr]))
+              let insertPlaceholder = fragments[index + 1] && fragments[index + 1][0] || placeholder
+              fragments[index] = Array.from(frag.childNodes)
+              insertPlaceholder.before(frag)
+              break
+          }
+        }
+
+        fragments = fragments.filter(v => v)
+        destroyCallbacks = destroyCallbacks.filter(v => v)
+
 
         console.group("each/update")
         console.log("??????????????????????????????????", curr)
+        console.log("fragments", fragments)
+        console.log("destroyCallbacks", destroyCallbacks)
         console.groupEnd()
       },
+
       () => prev = el = ctx = null
     ]
   })

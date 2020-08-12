@@ -1,9 +1,5 @@
 const babel = Babel
 
-import {setIndentifiers} from "../table/identifiers.js"
-import {setReactive} from "../table/reactives"
-import {INVALIDATE_FUNC_NAME} from "./config"
-
 let identifiers
 
 function makeSetter({types: t}) {
