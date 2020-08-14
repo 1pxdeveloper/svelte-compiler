@@ -129,9 +129,9 @@ export function transform(paths) {
 
         console.log("each", name, value)
 
-        const watch = generateWatch(name)
+        const watchId = generateWatchIndex(name)
         const scopeId = enterScope(value)
-        return `\neach(${scopeId}, ${watch}, fragment(`
+        return `\neach(${watchId}, ${scopeId}, fragment(`
       }
 
       case "logicBlockCloseStart": {
