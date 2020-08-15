@@ -1,38 +1,28 @@
 <script>
-let name = 'world'
-let arr = name.split('').map(m => ({name: m}))
+export let bar = 0
 
-const shuffle = () => {
-  arr = arr.slice().sort(() => Math.random() - Math.random())
+function foo(node, bar) {
+  // the node has been mounted in the DOM
+
+  node.innerHTML = "start!" + bar
+
+
+  return {
+    update(bar) {
+      // the value of `bar` has changed
+
+      node.innerHTML = bar
+    },
+
+    destroy() {
+      // the node has been removed from the DOM
+    }
+  }
 }
 
-const push = () => {
-  arr = [...arr, {name: "???"}]
-}
-
-const shift = () => {
-  arr = arr.slice(2)
-}
-
+setInterval(() => {
+  bar++
+}, 1000)
 </script>
 
-<h1>Hello {name}! {arr.map(n => n.name).join(' ')}</h1>
-<input type="text" bind:value={name}/>
-
-<div>
-  <button on:click={shuffle}>shuffle</button>
-</div>
-
-<div>
-  <button on:click={push}>push</button>
-</div>
-
-<div>
-  <button on:click={shift}>shift</button>
-</div>
-
-
-{#each arr as row, index}
-  <p>{index} {row.name}</p>
-  <input bind:value={row.name}/>
-{/each}
+<div use:foo={bar}></div>

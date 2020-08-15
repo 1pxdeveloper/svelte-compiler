@@ -2,6 +2,8 @@ const noop = () => {}
 
 const toNumber = (a, n = +a) => a && n === n ? n : a
 
+const run = (fn, ...args) => fn && fn(...args)
+
 const multiple_calls = (arr, ...args) => arr.map(fn => fn && fn(...args))
 
 const createContext = (bindings, find) => (...args) => (callback) => {
@@ -10,7 +12,7 @@ const createContext = (bindings, find) => (...args) => (callback) => {
   if (!callbacks) return () => {}
 
   /// watch
-  const [updateCallback, destroyCallback] = callbacks
+  const [updateCallback = noop, destroyCallback = noop] = callbacks || []
   updateCallback()
   bindings.push(updateCallback)
 
@@ -48,27 +50,16 @@ const createComponentContext = (createInstance, $$props) => {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
 /// @TODO: 변수가 32개 넘어가면 mask 복수개가 필요함.
 const watch = (index) => (callback) => (el, ctx) => ctx(index)(dataFn => {
   let [dataCallback, mask] = dataFn()
   let value = dataCallback()
-  let [updateCallback, destroyCallback] = callback(el, ctx)
+  let [updateCallback = noop, destroyCallback = noop] = callback(el, ctx) || []
   updateCallback(value)
 
   return [
-    (dirty) => {
-
-      if (dirty & mask) {
-        let [dataCallback, mask] = dataFn()
-        value = dataCallback()
-        updateCallback(value)
-
-        console.log("watch!!!!", index, dataCallback, value, el, dirty, dirty & mask)
-      }
-      // (dirty & mask) && (value !== (value = dataCallback()) || Object(value) === value) && updateCallback(value)
-
-
-    },
+    (dirty) => (dirty & mask) && (value !== (value = dataCallback()) || Object(value) === value) && updateCallback(value),
     () => value = dataCallback = updateCallback = destroyCallback = void destroyCallback()
   ]
 })
@@ -181,6 +172,27 @@ const $bind = (prop) => (set) => (el) => {
   ]
 }
 
+const use = (action, parameters) => action((el, ctx) => {
+  let destroyCallback
+  return [
+    (fn) => {
+      run(destroyCallback)
+
+      // init
+      let updateAndDestroy
+
+      parameters(el => [data => {
+        let {update = noop, destroy = noop} = fn(el, data) || {}
+        updateAndDestroy = [update, destroy]
+      }])(el, ctx)()
+
+      // update & destroy
+      destroyCallback = parameters(() => updateAndDestroy)(el, ctx)
+    },
+    () => run(destroyCallback)
+  ]
+})
+
 
 const If = (...conditions) => (el, ctx) => {
   let fragments = conditions.filter((a, index) => index % 2)
@@ -280,10 +292,7 @@ const each = (watchId, scopeId, node) => (el, ctx) => ctx(watchId, scopeId)((dat
 
             let eachContext = createContext(bindings, prop => {
 
-              const result = scopeCallback(...eachContext.args)[prop]
-
-              console.warn("##############", eachContext.args, prop, result, result[0] && result[0]())
-              return result
+              return scopeCallback(...eachContext.args)[prop]
             })
 
             eachContext.args = [value, index, collection]

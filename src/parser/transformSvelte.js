@@ -84,6 +84,12 @@ export function transform(paths) {
           return w + '(' + s + `($bind(${quote(name2)})))`
         }
 
+        if (prefix === "use") {
+          let action = generateWatch(name2)
+          let parameters = generateWatch(source)
+          return `use(${action}, ${parameters})`
+        }
+
         throw new TypeError('not defined! ' + prefix, name2, name)
       }
 
