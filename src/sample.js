@@ -1,16 +1,14 @@
 module()(() => {
   function createInstance($$invalidate, $$props, $$update) {
-    let name = 0
-
-
-    setInterval(() => {
-
-      $$invalidate(name++, 1)
-    }, 1000)
-    return [[[() => name, 1], value => $$invalidate(name = value, 1)], {}]
+    let x = 7
+    return [[[() => x > 10, 1], [() => x, 1], [() => 5 > x, 1]], {}]
   }
 
   return createComponent(createInstance,
-    element('h1', text('Hello '), watch(0)($text), text('!')),
-    element('input', attr('type', 'text'), watch(0)(setter(1)($bind('value')))))(...arguments)
+    If([0, fragment(
+      element('p', watch(1)($text), text(' '), text('is greater than 10')))],
+      [2, fragment(
+        element('p', watch(1)($text), text(' '), text('is less than 5')))],
+      [, fragment(
+        element('p', watch(1)($text), text(' '), text('is between 5 and 10')))]))(...arguments)
 })

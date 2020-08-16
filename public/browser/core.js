@@ -4,16 +4,16 @@ const toNumber = (a, n = +a) => a && n === n ? n : a
 
 const run = (fn, ...args) => fn && fn(...args)
 
-const multiple_calls = (arr, ...args) => arr.map(fn => fn && fn(...args))
+const multiple_calls = (arr, ...args) => arr && arr.map(fn => fn && fn(...args))
 
-const createContext = (bindings, find) => (...args) => (callback) => {
+const createContext = (bindings, find) => (...indexes) => (callback) => {
 
-  const callbacks = callback(...args.map(arg => () => find(arg)))
-  if (!callbacks) return () => {}
+  const callbacks = callback(...indexes.map(index => () => find(index)))
+  if (!callbacks) return noop
 
   /// watch
   const [updateCallback = noop, destroyCallback = noop] = callbacks || []
-  updateCallback()
+  updateCallback(-1)
   bindings.push(updateCallback)
 
   /// unwatch
@@ -90,7 +90,7 @@ const element = (tagName, ...nodes) => (target, ctx) => {
   let el = document.createElement(tagName)
   let destroyCallback = fragment(...nodes)(el, ctx)
   target.appendChild(el)
-  return () => destroyCallback = el = void destroyCallback() || void el.remove()
+  return () => destroyCallback = el = void destroyCallback() & el.remove()
 }
 
 const attr = (nodeName, nodeValue) => (el) => (el.setAttribute(nodeName, nodeValue), noop)
@@ -112,8 +112,8 @@ const $text = (el) => {
 }
 
 const $html = (el) => {
-  let template = document.createElement('template')
   let frag = []
+  let template = document.createElement('template')
   let textNode = document.createTextNode('')
   el.appendChild(textNode)
 
@@ -143,9 +143,7 @@ const $class = (className) => (el) => [
 ]
 
 const $on = (type) => (el, ctx, listener) => [
-  (value) => {
-    el.addEventListener(type, (listener = value))
-  },
+  (value) => el.addEventListener(type, (listener = value)),
   () => listener = void el.removeEventListener(type, listener)
 ]
 
@@ -194,36 +192,35 @@ const use = (action, parameters) => action((el, ctx) => {
 })
 
 
-const If = (...conditions) => (el, ctx) => {
-  let fragments = conditions.filter((a, index) => index % 2)
-  let watchers = conditions.filter((w, index) => index % 2 === 0 && w)
-
-  console.log("watchers", watchers)
-
-  let conds = [...new Array(watchers.length), true]
-  let cond = (index) => () => [value => conds[index] = value]
-  watchers.forEach((watcher, index) => watcher(cond(index))(el, ctx))
-
-  let destroyCallbacks = noop
+const If = (...conditions) => (el, ctx) => ctx(...conditions.map(c => c[0]))((...conditionCallbacks) => {
+  let cache
+  let caches = []
+  let destroyCallback
 
   /// @FIXME: 중복 패턴
   let frag = document.createDocumentFragment()
   let placeholder = document.createTextNode('')
   el.appendChild(placeholder)
 
-  return conditions[0]((el, ctx) => [
-    () => {
-      destroyCallbacks()
-      const f = fragments[conds.indexOf(true)]
-      destroyCallbacks = f ? f(el, ctx) : noop
+  return [
+    (dirty) => {
+      let index = conditionCallbacks.findIndex((conditionCallback, index) => {
+        const [dataCallback, mask] = conditionCallback() || []
+        return dataCallback ? (dirty & mask) ? (caches[index] = !!dataCallback()) : caches[index] : true
+      })
+
+      if (cache === index) return
+      cache = index
+
+      destroyCallback = void run(destroyCallback)
+      if (index === -1) return
+
+      destroyCallback = conditions[index][1](frag, ctx)
       placeholder.before(frag)
     },
-    () => {
-      fragments = conds = destroyCallbacks = void destroyCallbacks()
-      frag = placeholder = placeholder.remove()
-    }
-  ])(frag, ctx)
-}
+    () => frag = placeholder = void destroyCallback() & placeholder.remove()
+  ]
+})
 
 
 const BINDING = 0
@@ -239,88 +236,82 @@ const each = (watchId, scopeId, node) => (el, ctx) => ctx(watchId, scopeId)((dat
   let prev = []
   let eachFragments = []
 
-  const updateCallback = (dirty) => {
-    let [dataCallback, mask] = dataFn()
-
-    if (dirty & mask) {
-      let [scopeCallback, scopeMask] = scopeFn()
-
-      console.log("dataCallback @@@@@@@@@@@@@@@@@", dataCallback, mask)
-      console.log("scopeCallback @@@@@@@@@@@@@@@@@", scopeCallback, scopeMask)
-
-      console.log("dirty", dirty)
-      dirty |= scopeMask
-
-      console.log("dirty2", dirty)
-
-      let collection = Array.from(dataCallback())
-      let difference = diff(prev, collection)
-      prev = collection
-
-      let prevFragments = [...eachFragments]
-      eachFragments = []
-
-      for (const [type, value, prev_index, index] of difference) {
-        console.log(type, value, prev_index, index)
-
-        switch (type) {
-          case diff.DELETE:
-            prevFragments[prev_index][DESTROY]()
-            break
-
-          case diff.NOT_CHANGED:
-            eachFragments[index] = prevFragments[prev_index]
-            const eachContext = prevFragments[prev_index][CONTEXT]
-            console.log("@TODO: data update Here!!!!!!!!!! 111", eachContext.args.slice())
-
-            eachContext.args = [value, index, collection]
-
-            console.log("@TODO: data update Here!!!!!!!!!! 222", eachContext.args)
-            break
-        }
-      }
-
-      for (const [type, value, prev_index, index] of difference) {
-        switch (type) {
-          /// @TODO: diff.PATCH: insert이나 DELETE에 속한 data일 때,
-          case diff.PATCH:
-            break
-
-          case diff.INSERT:
-            let bindings = []
-            let eachFragment = document.createDocumentFragment()
-
-            let eachContext = createContext(bindings, prop => {
-
-              return scopeCallback(...eachContext.args)[prop]
-            })
-
-            eachContext.args = [value, index, collection]
-
-
-            let eachDestroyCallback = node(eachFragment, eachContext)
-            eachFragments[index] = [bindings, Array.from(eachFragment.childNodes), eachContext, eachDestroyCallback]
-
-
-            /// @FIXME: 어떻게 DOM을 잘 끼울것인가!
-            let insertPlaceholder = prevFragments[prev_index] && prevFragments[prev_index][FRAGMENT][0] || placeholder
-            insertPlaceholder.before(eachFragment)
-            break
-        }
-      }
-    }
-
-    eachFragments.forEach(e => multiple_calls(e[BINDING], dirty))
-  }
-
-  updateCallback(-1)
-
   return [
-    updateCallback,
+    (dirty) => {
+      let [dataCallback, mask] = dataFn()
+
+      if (dirty & mask) {
+        let [scopeCallback, scopeMask] = scopeFn()
+
+        console.log("dataCallback @@@@@@@@@@@@@@@@@", dataCallback, mask)
+        console.log("scopeCallback @@@@@@@@@@@@@@@@@", scopeCallback, scopeMask)
+
+        console.log("dirty", dirty)
+        dirty |= scopeMask
+
+        console.log("dirty2", dirty)
+
+        let collection = Array.from(dataCallback())
+        let difference = diff(prev, collection)
+        prev = collection
+
+        let prevFragments = [...eachFragments]
+        eachFragments = []
+
+        for (const [type, value, prev_index, index] of difference) {
+          console.log(type, value, prev_index, index)
+
+          switch (type) {
+            case diff.DELETE:
+              prevFragments[prev_index][DESTROY]()
+              break
+
+            case diff.NOT_CHANGED:
+              eachFragments[index] = prevFragments[prev_index]
+              const eachContext = prevFragments[prev_index][CONTEXT]
+              console.log("@TODO: data update Here!!!!!!!!!! 111", eachContext.args.slice())
+
+              eachContext.args = [value, index, collection]
+
+              console.log("@TODO: data update Here!!!!!!!!!! 222", eachContext.args)
+              break
+          }
+        }
+
+        for (const [type, value, prev_index, index] of difference) {
+          switch (type) {
+            /// @TODO: diff.PATCH: insert이나 DELETE에 속한 data일 때,
+            case diff.PATCH:
+              break
+
+            case diff.INSERT:
+              let bindings = []
+              let eachFragment = document.createDocumentFragment()
+
+              let eachContext = createContext(bindings, prop => {
+
+                return scopeCallback(...eachContext.args)[prop]
+              })
+
+              eachContext.args = [value, index, collection]
+
+
+              let eachDestroyCallback = node(eachFragment, eachContext)
+              eachFragments[index] = [bindings, Array.from(eachFragment.childNodes), eachContext, eachDestroyCallback]
+
+
+              /// @FIXME: 어떻게 DOM을 잘 끼울것인가!
+              let insertPlaceholder = prevFragments[prev_index] && prevFragments[prev_index][FRAGMENT][0] || placeholder
+              insertPlaceholder.before(eachFragment)
+              break
+          }
+        }
+      }
+
+      eachFragments.forEach(e => multiple_calls(e[BINDING], dirty))
+    },
     () => {}
   ]
-
-
 })
 
 

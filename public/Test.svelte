@@ -1,28 +1,23 @@
 <script>
-export let bar = 0
-
-function foo(node, bar) {
-  // the node has been mounted in the DOM
-
-  node.innerHTML = "start!" + bar
+	let x = 3;
 
 
-  return {
-    update(bar) {
-      // the value of `bar` has changed
+	setInterval(() => {
+		x++
+	}, 1000)
 
-      node.innerHTML = bar
-    },
-
-    destroy() {
-      // the node has been removed from the DOM
-    }
-  }
-}
-
-setInterval(() => {
-  bar++
-}, 1000)
 </script>
 
-<div use:foo={bar}></div>
+<h1>{x}</h1>
+
+
+{#if x > 10}
+	<p>{x} is greater than 10</p>
+{:else if 5 > x}
+	<p>{x} is less than 5</p>
+{:else}
+	<p>{x} is between 5 and 10</p>
+{/if}
+
+
+<div>asdlkfjaskldfjklas dfkl sakflj klsd </div>

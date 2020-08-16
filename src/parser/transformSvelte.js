@@ -111,15 +111,15 @@ export function transform(paths) {
 
         switch (tagName) {
           case "#if": {
-            return `\nIf(` + generateWatch(`!!(${value})`) + `, fragment(`
+            return `\nIf([` + generateWatchIndex(value) + `, fragment(`
           }
 
           case ":else if": {
-            return `),\n` + generateWatch(`!!(${value})`) + `, fragment(`
+            return `)],\n[` + generateWatchIndex(value) + `, fragment(`
           }
 
           case ":else": {
-            return '),0,fragment('
+            return ')],\n[,fragment('
           }
 
           case "@html": {
@@ -141,10 +141,16 @@ export function transform(paths) {
       }
 
       case "logicBlockCloseStart": {
+        if (tagName === "/if") {
+          return ')])'
+        }
+
         if (tagName === "/each") {
           exitScope()
+          return '))'
         }
-        return '))'
+
+          return '))'
       }
     }
 
