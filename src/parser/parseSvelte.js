@@ -269,27 +269,29 @@ const dispatch = (phase, type, value) => {
     case "(blockStart)":
 
       // @FIXME:
-      if (path.type === "elementOpen" && !path.isClosed) {
-        createPath("attr")
-        path.isWatch = true
-        break
-      }
+      if (path) {
+        if (path.type === "elementOpen" && !path.isClosed) {
+          createPath("attr")
+          path.isWatch = true
+          break
+        }
 
-      if (path.isTemplate) {
-        path.value += '${'
-        path.isWatch = true
-        break
-      }
+        if (path.isTemplate) {
+          path.value += '${'
+          path.isWatch = true
+          break
+        }
 
-      if (path.type === "attr") {
-        path.value += '{'
-        path.isWatch = true
-        break
-      }
+        if (path.type === "attr") {
+          path.value += '{'
+          path.isWatch = true
+          break
+        }
 
-      if (path.type === "each") {
-        path.value += '{'
-        break
+        if (path.type === "each") {
+          path.value += '{'
+          break
+        }
       }
 
       // text

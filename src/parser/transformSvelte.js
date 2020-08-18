@@ -84,6 +84,12 @@ export function transform(paths) {
           return w + '(' + s + `($bind(${quote(name2)})))`
         }
 
+        if (prefix === "transition") {
+          let action = generateWatch(name2)
+          let parameters = generateWatch(source)
+          return `transition(${action}, ${parameters})`
+        }
+
         if (prefix === "use") {
           let action = generateWatch(name2)
           let parameters = generateWatch(source)
@@ -150,7 +156,7 @@ export function transform(paths) {
           return '))'
         }
 
-          return '))'
+        return '))'
       }
     }
 

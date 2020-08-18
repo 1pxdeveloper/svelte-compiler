@@ -164,6 +164,16 @@ const $bind = (prop) => (set) => (el) => {
     ]
   }
 
+  if (prop === "checked") {
+    const handler = () => set(el.checked)
+    el.addEventListener("input", handler)
+
+    return [
+      (value) => el.checked = !!value,
+      () => el = void el.removeEventListener("input", handler)
+    ]
+  }
+
   return [
     (value) => el[prop] = value,
     () => el = null
@@ -372,3 +382,42 @@ const component = (comp, ...nodes) => (el, ctx) => {
     destroyCallback2 = void destroyCallback2.forEach(destroyCallback => destroyCallback())
   }
 }
+
+
+const fade = (el, params) => {
+
+  console.warn("fade", el, params)
+
+  el.style.transition = "all .5s"
+  requestAnimationFrame(() => {
+    el.style.opacity = 1
+  })
+
+
+
+}
+
+
+const transition = (action, parameters) => action((el, ctx) => {
+  let destroyCallback
+
+  return [
+    (fn) => {
+      run(destroyCallback)
+
+      // init
+      let updateAndDestroy
+
+      parameters(el => [data => {
+
+
+        fn(el, data)
+
+
+
+      }])(el, ctx)
+    },
+
+    () => run(destroyCallback)
+  ]
+})
